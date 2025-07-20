@@ -1,5 +1,4 @@
 // app/api/meeting/track-participant/route.ts
-// Create this file to handle server-side participant tracking
 
 import { NextRequest, NextResponse } from 'next/server';
 import { StreamClient } from '@stream-io/node-sdk';
@@ -84,27 +83,55 @@ export async function POST(req: NextRequest) {
         // Add new participant
         updatedParticipants.push(participant);
       }
+      
+      // First update custom data
+      await call.update({
+        custom: {
+          ...customData,
+          participants: updatedParticipants,
+        },
+      });
+      
+      // IMPORTANT: Add the user to call members using the proper method
+      // This ensures they'll be found when querying calls by members
+      await call.updateCallMembers({
+        update_members: [{ 
+          user_id: participant.user_id,
+          // Set role based on participant data if provided
+          ...(participant.role === 'creator' ? { role: 'admin' } : {})
+        }],
+      });
     } else if (action === 'leave') {
-      // Optional: Mark participant as left instead of removing
+      // Mark participant as left instead of removing
       updatedParticipants = updatedParticipants.map(p => 
         p.user_id === participant.user_id 
           ? { ...p, status: 'left', left_at: new Date().toISOString() }
           : p
       );
+      
+      // Update the custom data
+      await call.update({
+        custom: {
+          ...customData,
+          participants: updatedParticipants,
+        },
+      });
+      
+      // Note: We're not removing from members list to keep query history
     } else if (action === 'end') {
       // Record who ended the call
       customData.ended_by = participant;
       customData.ended_at = new Date().toISOString();
       customData.final_participant_count = updatedParticipants.length;
+      
+      // Update the custom data
+      await call.update({
+        custom: {
+          ...customData,
+          participants: updatedParticipants,
+        },
+      });
     }
-    
-    // Update the call with the new participants list
-    await call.update({
-      custom: {
-        ...customData,
-        participants: updatedParticipants,
-      },
-    });
     
     return NextResponse.json({ success: true });
   } catch (error) {

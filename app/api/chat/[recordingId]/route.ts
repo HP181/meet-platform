@@ -1,14 +1,14 @@
 // app/api/chat/[recordingId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
+import { Chat, RecordingMetadata } from '@/models';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { recordingId: string } }
 ) {
   try {
-    const param = await params;
-    const recordingId = param.recordingId;
+    const recordingId = (await params).recordingId;
     
     if (!recordingId) {
       return NextResponse.json(
@@ -17,18 +17,28 @@ export async function GET(
       );
     }
 
-    // Connect to MongoDB
-    const { db } = await connectToDatabase();
+    // Connect to MongoDB via Mongoose
+    await connectToDatabase();
+    
+    // Get recording metadata for context
+    const metadata = await RecordingMetadata.findOne({ uniqueId: recordingId });
+    
+    if (!metadata) {
+      return NextResponse.json(
+        { error: 'Recording metadata not found' }, 
+        { status: 404 }
+      );
+    }
     
     // Find chat history by recordingId
-    const chatHistory = await db
-      .collection('chats')
-      .findOne({ recordingId });
+    const chatHistory = await Chat.findOne({ recordingId });
     
     if (!chatHistory) {
+      // Return empty messages array if no chat history found
       return NextResponse.json({
         recordingId,
-        messages: []
+        messages: [],
+        recordingMetadata: metadata
       });
     }
 
@@ -36,7 +46,8 @@ export async function GET(
       recordingId: chatHistory.recordingId,
       messages: chatHistory.messages,
       createdAt: chatHistory.createdAt,
-      updatedAt: chatHistory.updatedAt
+      updatedAt: chatHistory.updatedAt,
+      recordingMetadata: metadata
     });
     
   } catch (error) {

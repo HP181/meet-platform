@@ -1,3 +1,5 @@
+// hooks/useRecordings.ts
+
 import { useState, useCallback, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { Call, CallRecording, CallTranscription, useStreamVideoClient } from '@stream-io/video-react-sdk';
@@ -138,7 +140,7 @@ export const useRecordings = () => {
           ],
         },
       });
-      
+      console.log('Fetched calls:', calls);
       // 2 & 3. Get recording calls and transcriptions in parallel
       const callsWithRecordingsAndTranscriptions: {
         call: Call;
@@ -166,6 +168,8 @@ export const useRecordings = () => {
           // Skip calls with errors
         }
       }
+
+      console.log('Calls with recordings and transcriptions:', callsWithRecordingsAndTranscriptions);
       
       // 4. Process calls with recordings and extract custom data
       const finalResults: CallWithData[] = [];
@@ -187,6 +191,8 @@ export const useRecordings = () => {
             transcriptions: processedTranscriptions,
             custom: customData
           });
+
+          console.log("finalResults:", finalResults);
         } catch (err) {
           // Still add the call even if we couldn't process custom data
           const processedTranscriptions = processTranscriptions(

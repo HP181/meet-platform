@@ -1,6 +1,8 @@
+// components/CallList.tsx (updated version)
+
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { RefreshCw, FileText, BrainCircuit, MessageSquare } from "lucide-react";
@@ -9,7 +11,7 @@ import Loader from "./Loader";
 import MeetingCard from "./MeetingCard";
 import { Button } from "./ui/button";
 import TranscriptionDialog, { TranscriptionSegment, TranscriptionFile } from '@/components/TranscriptionDialog';
-import SummaryDialog from '@/components/SummaryDialog'; // New component for summary
+import SummaryDialog from '@/components/SummaryDialog';
 
 // Import the useRecordings hook
 import { useRecordings } from '@/hooks/useRecordings';
@@ -26,6 +28,7 @@ interface EnhancedRecording {
   session_id: string;
   hasTranscriptions: boolean;
   transcriptions: TranscriptionFile[];
+  hasValidTranscription?: boolean;
 }
 
 // Helper function to convert types - returns UserDetails or undefined (not null)
@@ -65,6 +68,24 @@ const formatDate = (
   }
 };
 
+// Function to validate transcription URL
+const isValidTranscriptionUrl = (transcription: TranscriptionFile): boolean => {
+  // First check if URL exists
+  if (!transcription?.url) {
+    return false;
+  }
+  
+  // Check if the URL contains error indicators
+  const url = transcription.url.toLowerCase();
+  if (url.includes('error') || 
+      url.includes('invalidkey') || 
+      url.includes('unknown key')) {
+    return false;
+  }
+  
+  return true;
+};
+
 interface CallListProps {
   type: "ended" | "upcoming" | "recordings";
 }
@@ -72,7 +93,7 @@ interface CallListProps {
 const CallList = ({ type }: CallListProps) => {
   const router = useRouter();
   
-  // Use the useRecordings hook
+  // Use the updated useRecordings hook that includes all functionality
   const { 
     callsWithData, 
     endedCalls, 
@@ -99,47 +120,148 @@ const CallList = ({ type }: CallListProps) => {
   const [summaryContent, setSummaryContent] = useState<string>("");
   const [currentRecordingId, setCurrentRecordingId] = useState<string>("");
   
-  // Function to handle opening transcription dialog
-  const handleViewTranscript = async (transcriptionFiles: TranscriptionFile[]) => {
-    if (!transcriptionFiles || transcriptionFiles.length === 0) return;
-    
-    setTranscriptionData([]);
-    setTranscriptionLoading(true);
-    setSelectedTranscriptionInfo(transcriptionFiles[0]);
-    
+  // Function to validate transcription content
+  const validateTranscriptionContent = useCallback(async (url: string): Promise<boolean> => {
     try {
-      const transcriptionUrl = transcriptionFiles[0]?.url;
+      const response = await fetch(url);
+      const text = await response.text();
       
-      if (!transcriptionUrl) {
-        throw new Error("No transcription URL found");
+      // Check for XML error messages
+      if (text.includes('<Error>') || 
+          text.includes('InvalidKey') || 
+          text.includes('Unknown Key')) {
+        return false;
       }
       
-      // Load the data first before opening the dialog
-      const parsedData = await fetchTranscriptionData(transcriptionUrl);
-      setTranscriptionData(parsedData);
+      // Try to parse content
+      let hasValidContent = false;
       
-      // Only open dialog after data is loaded
-      setTranscriptionDialogOpen(true);
-    } catch (err) {
-      console.error("Error loading transcription:", err);
-      setTranscriptionData([]);
-      toast.error("Failed to load transcription");
-    } finally {
-      setTranscriptionLoading(false);
+      try {
+        // Try parsing as a JSON array
+        const jsonArray = JSON.parse(text);
+        if (Array.isArray(jsonArray) && jsonArray.length > 0) {
+          // Check if first item has expected fields
+          const firstItem = jsonArray[0];
+          if (firstItem && firstItem.speaker_id && firstItem.text) {
+            hasValidContent = true;
+          }
+        }
+      } catch (jsonError) {
+        // Try parsing as space-separated JSON objects
+        const jsonObjects = text.trim().split(/\s+(?=\{)/);
+        if (jsonObjects.length > 1) {
+          try {
+            const firstObj = JSON.parse(jsonObjects[0].trim());
+            if (firstObj && firstObj.speaker_id && firstObj.text) {
+              hasValidContent = true;
+            }
+          } catch (e) {
+            // Not valid space-separated JSON
+          }
+        }
+        
+        if (!hasValidContent) {
+          // Try JSONL format
+          const lines = text.split('\n').filter(line => line.trim());
+          if (lines.length > 0) {
+            try {
+              const firstLine = JSON.parse(lines[0]);
+              if (firstLine && firstLine.speaker_id && firstLine.text) {
+                hasValidContent = true;
+              }
+            } catch (e) {
+              // Not valid JSONL
+            }
+          }
+        }
+      }
+      
+      return hasValidContent;
+    } catch (error) {
+      console.error("Error validating transcription:", error);
+      return false;
     }
-  };
+  }, []);
   
+  // Function to handle opening transcription dialog
+// Updated handleViewTranscript function for CallList.tsx
+// Updated handleViewTranscript function for CallList.tsx
+const handleViewTranscript = async (transcriptionFiles: TranscriptionFile[]) => {
+  if (!transcriptionFiles || transcriptionFiles.length === 0) return;
+  
+  setTranscriptionData([]);
+  setTranscriptionLoading(true);
+  setSelectedTranscriptionInfo(transcriptionFiles[0]);
+  
+  // Open dialog immediately with loading state
+  setTranscriptionDialogOpen(true);
+  
+  try {
+    const transcriptionUrl = transcriptionFiles[0]?.url;
+    
+    if (!transcriptionUrl) {
+      // Set empty data without showing toast
+      setTranscriptionData([]);
+      setTranscriptionLoading(false);
+      return;
+    }
+    
+    // Check if response contains XML error messages
+    const response = await fetch(transcriptionUrl);
+    const text = await response.text();
+    
+    if (text.includes('<Error>') || 
+        text.includes('InvalidKey') || 
+        text.includes('Unknown Key')) {
+      // Set empty data without showing toast
+      setTranscriptionData([]);
+      setTranscriptionLoading(false);
+      return;
+    }
+    
+    // Load the data before updating the dialog content
+    const parsedData = await fetchTranscriptionData(transcriptionUrl);
+    
+    // Validate parsed data
+    if (!parsedData || parsedData.length === 0 || 
+        !parsedData[0]?.speaker_id || !parsedData[0]?.text) {
+      // Set empty data without showing toast
+      setTranscriptionData([]);
+      setTranscriptionLoading(false);
+      return;
+    }
+    
+    // Set transcription data once loaded
+    setTranscriptionData(parsedData);
+    
+  } catch (err) {
+    console.error("Error loading transcription:", err);
+    
+    // Set empty data without showing toast for expected errors
+    setTranscriptionData([]);
+    
+    // Only show toast for unexpected errors (network issues, etc.)
+    if (!(err instanceof Error && 
+         (err.message.includes("Transcription not available") || 
+          err.message.includes("Invalid transcription format") ||
+          err.message.includes("No transcription URL found")))) {
+      toast.error("Failed to load transcription");
+    }
+  } finally {
+    setTranscriptionLoading(false);
+  }
+};
   // Function to handle generating summary
-  const handleGenerateSummary = async (transcriptionFiles: TranscriptionFile[], recordingId: string) => {
-    if (!transcriptionFiles || transcriptionFiles.length === 0) return;
+  const handleGenerateSummary = async (recording: EnhancedRecording) => {
+    if (!recording || !recording.transcriptions || recording.transcriptions.length === 0 || !recording.hasValidTranscription) return;
     
     setSummaryLoading(true);
-    setCurrentRecordingId(recordingId);
+    setCurrentRecordingId(recording.uniqueId);
     setSummaryDialogOpen(true);
     
     try {
       // First check if summary already exists in database
-      const summaryResponse = await fetch(`/api/summary/${recordingId}`);
+      const summaryResponse = await fetch(`/api/summary/${recording.uniqueId}`);
       
       if (summaryResponse.ok) {
         // Summary exists, use it
@@ -150,7 +272,7 @@ const CallList = ({ type }: CallListProps) => {
       }
       
       // Summary doesn't exist, need to generate it
-      const transcriptionUrl = transcriptionFiles[0]?.url;
+      const transcriptionUrl = recording.transcriptions[0]?.url;
       
       if (!transcriptionUrl) {
         throw new Error("No transcription URL found");
@@ -158,6 +280,11 @@ const CallList = ({ type }: CallListProps) => {
       
       // Load the transcription data
       const parsedData = await fetchTranscriptionData(transcriptionUrl);
+      
+      // Check if data is valid
+      if (!parsedData || parsedData.length === 0) {
+        throw new Error("Invalid transcription data");
+      }
       
       // Convert transcription segments to a text format for the AI
       const transcriptText = parsedData
@@ -172,9 +299,12 @@ const CallList = ({ type }: CallListProps) => {
         },
         body: JSON.stringify({
           transcript: transcriptText,
-          recordingId,
-          sessionId: transcriptionFiles[0].session_id,
-          filename: transcriptionFiles[0].filename
+          uniqueId: recording.uniqueId,
+          sessionId: recording.session_id,
+          recordingFilename: recording.filename,
+          recordingUrl: recording.url,
+          transcriptFilename: recording.transcriptions[0]?.filename || 'transcript.txt',
+          transcriptUrl: transcriptionUrl
         }),
       });
       
@@ -195,14 +325,16 @@ const CallList = ({ type }: CallListProps) => {
   };
   
   // Function to navigate to chat page
-  const handleNavigateToChat = (transcriptionFiles: TranscriptionFile[], recordingId: string) => {
+  const handleNavigateToChat = (recording: EnhancedRecording) => {
+    if (!recording.hasValidTranscription) return;
+    
     // Store necessary info in localStorage for the chat page
-    localStorage.setItem('currentRecordingId', recordingId);
-    localStorage.setItem('transcriptionUrl', transcriptionFiles[0]?.url || '');
-    localStorage.setItem('recordingName', transcriptionFiles[0]?.filename || 'Recording');
+    localStorage.setItem('currentRecordingId', recording.uniqueId);
+    localStorage.setItem('transcriptionUrl', recording.transcriptions[0]?.url || '');
+    localStorage.setItem('recordingName', recording.filename || 'Recording');
     
     // Navigate to chat page
-    router.push(`/chat/${recordingId}`);
+    router.push(`/chat/${recording.uniqueId}`);
   };
 
   // Process recordings when callsWithData changes
@@ -211,27 +343,81 @@ const CallList = ({ type }: CallListProps) => {
     
     const enhancedRecordings: EnhancedRecording[] = [];
     
-    callsWithData.forEach((callData) => {
-      callData.recordings.forEach((recording, index) => {
+    callsWithData.forEach((callData, callIndex) => {
+      callData.recordings.forEach((recording, recordingIndex) => {
         // Find matching transcriptions for this recording
         const matchingTranscriptions = callData.transcriptions.filter(
           t => t.session_id === recording.session_id
         );
         
         enhancedRecordings.push({
-          uniqueId: `recording-${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${index}`,
+          uniqueId: `recording-${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${recordingIndex}`,
           filename: recording.filename || "Unnamed Recording",
           url: recording.url,
           start_time: recording.start_time || new Date(),
           session_id: recording.session_id,
           hasTranscriptions: matchingTranscriptions.length > 0,
-          transcriptions: matchingTranscriptions
+          transcriptions: matchingTranscriptions,
+          hasValidTranscription: false // Default to false until validated
         });
       });
     });
     
+    // Set the initial recordings
     setProcessedRecordings(enhancedRecordings);
+    
   }, [callsWithData, type]);
+  
+  // Separate effect to validate transcriptions after initial rendering
+  // This prevents the circular dependency that was causing infinite updates
+  useEffect(() => {
+    if (processedRecordings.length === 0) return;
+    
+    const validateRecordings = async () => {
+      const validationPromises: Promise<{ index: number; isValid: boolean }>[] = [];
+      
+      // Prepare validation promises
+      processedRecordings.forEach((recording, index) => {
+        if (recording.hasTranscriptions && 
+            recording.transcriptions.length > 0 && 
+            isValidTranscriptionUrl(recording.transcriptions[0])) {
+          validationPromises.push(
+            validateTranscriptionContent(recording.transcriptions[0].url)
+              .then(isValid => ({ index, isValid }))
+              .catch(() => ({ index, isValid: false }))
+          );
+        }
+      });
+      
+      // If no validations to run, stop here
+      if (validationPromises.length === 0) return;
+      
+      // Process validation results
+      const results = await Promise.all(validationPromises);
+      
+      // Create updated recordings with validation results
+      const updatedRecordings = [...processedRecordings];
+      let hasChanges = false;
+      
+      results.forEach(({ index, isValid }) => {
+        if (index < updatedRecordings.length && updatedRecordings[index].hasValidTranscription !== isValid) {
+          updatedRecordings[index] = {
+            ...updatedRecordings[index],
+            hasValidTranscription: isValid
+          };
+          hasChanges = true;
+        }
+      });
+      
+      // Only update state if changes were made
+      if (hasChanges) {
+        setProcessedRecordings(updatedRecordings);
+      }
+    };
+    
+    validateRecordings();
+    
+  }, [processedRecordings, validateTranscriptionContent]);
 
   // Reset data when dialog closes
   useEffect(() => {
@@ -360,7 +546,7 @@ const CallList = ({ type }: CallListProps) => {
                   creator = convertedCreator;
                 }
               }
-console.log("recording", recording);
+
               return (
                 <div key={recording.uniqueId} className="flex flex-col">
                   <MeetingCard
@@ -381,14 +567,16 @@ console.log("recording", recording);
                       }
                     }}
                   />
-                  
-                  {/* Add AI buttons only for recordings with transcriptions */}
-                  {recording.hasTranscriptions && recording.transcriptions.length > 0 && (
+                
+                  {/* Add AI buttons only for recordings with VALID transcriptions */}
+                  {recording.hasTranscriptions && 
+                   recording.transcriptions.length > 0 && 
+                   recording.hasValidTranscription && (
                     <div className="flex gap-2 mt-2">
                       <Button 
                         variant="outline" 
                         className="flex-1 gap-2 bg-[#1E2655] hover:bg-[#2A3A6A] border-[#24294D] text-white"
-                        onClick={() => handleGenerateSummary(recording.transcriptions, recording.session_id)}
+                        onClick={() => handleGenerateSummary(recording)}
                       >
                         <BrainCircuit className="h-4 w-4" />
                         Summary
@@ -397,7 +585,7 @@ console.log("recording", recording);
                       <Button 
                         variant="outline" 
                         className="flex-1 gap-2 bg-[#1E2655] hover:bg-[#2A3A6A] border-[#24294D] text-white"
-                        onClick={() => handleNavigateToChat(recording.transcriptions, recording.session_id)}
+                        onClick={() => handleNavigateToChat(recording)}
                       >
                         <MessageSquare className="h-4 w-4" />
                         Chat with AI
@@ -493,11 +681,9 @@ console.log("recording", recording);
         recordingId={currentRecordingId}
         onChatClick={() => {
           setSummaryDialogOpen(false);
-          if (selectedTranscriptionInfo) {
-            handleNavigateToChat(
-              [selectedTranscriptionInfo], 
-              currentRecordingId
-            );
+          const recording = processedRecordings.find(r => r.uniqueId === currentRecordingId);
+          if (recording) {
+            handleNavigateToChat(recording);
           }
         }}
       />

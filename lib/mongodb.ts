@@ -1,42 +1,55 @@
-// lib/mongodb.ts
-import { MongoClient } from 'mongodb';
+// lib/mongoose.ts
+import mongoose from 'mongoose';
 
 const MONGODB_URI = process.env.MONGODB_URI as string;
-const MONGODB_DB = process.env.MONGODB_DB as string;
 
-// Check the MongoDB URI
+// Check if MongoDB URI is defined
 if (!MONGODB_URI) {
   throw new Error('Please define the MONGODB_URI environment variable');
 }
 
-// Check the MongoDB DB
-if (!MONGODB_DB) {
-  throw new Error('Please define the MONGODB_DB environment variable');
+/**
+ * Global is used here to maintain a cached connection across hot reloads
+ * in development. This prevents connections growing exponentially
+ * during API Route usage.
+ */
+let cached = (global as any).mongoose;
+
+if (!cached) {
+  cached = (global as any).mongoose = { conn: null, promise: null };
 }
 
-let cachedClient: MongoClient | null = null;
-let cachedDb: any = null;
-
 export async function connectToDatabase() {
-  // If we have the cached connection, return it
-  if (cachedClient && cachedDb) {
-    return { client: cachedClient, db: cachedDb };
+  if (cached.conn) {
+    return cached.conn;
   }
 
-  // If no connection, connect to the database
-  const client = new MongoClient(MONGODB_URI);
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands: false,
+    };
+
+    cached.promise = mongoose.connect(MONGODB_URI, opts)
+      .then((mongoose) => {
+        return mongoose;
+      });
+  }
 
   try {
-    await client.connect();
-    const db = client.db(MONGODB_DB);
-    
-    // Cache the connection
-    cachedClient = client;
-    cachedDb = db;
-    
-    return { client, db };
-  } catch (error) {
-    console.error('Failed to connect to MongoDB:', error);
-    throw error;
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
   }
+
+  return cached.conn;
+}
+
+// Add this to global.d.ts to avoid TypeScript errors
+declare global {
+  // eslint-disable-next-line no-var
+  var mongoose: {
+    conn: typeof mongoose | null;
+    promise: Promise<typeof mongoose> | null;
+  } | undefined;
 }

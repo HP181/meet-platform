@@ -20,11 +20,17 @@ interface Message {
 interface ChatHistory {
   recordingId: string;
   messages: Message[];
+  recordingMetadata?: {
+    recordingFilename: string;
+    recordingUrl: string;
+    transcriptFilename: string;
+    transcriptUrl: string;
+  };
 }
 
 const ChatWithAI = () => {
   const params = useParams();
-  const recordingId = params.recordingId as string;
+  const uniqueId = params.recordingId as string;
   const router = useRouter();
   
   const [input, setInput] = useState('');
@@ -32,7 +38,6 @@ const ChatWithAI = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [recordingName, setRecordingName] = useState<string>('');
   const [initializing, setInitializing] = useState(true);
-  const [summary, setSummary] = useState<string>('');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -43,21 +48,22 @@ const ChatWithAI = () => {
       setInitializing(true);
       
       try {
-        // Get recording name from localStorage
+        // Get recording name from localStorage as a fallback
         const storedName = localStorage.getItem('recordingName');
-        setRecordingName(storedName || 'Recording');
         
-        // Get summary from database
-        const summaryResponse = await fetch(`/api/summary/${recordingId}`);
-        if (summaryResponse.ok) {
-          const summaryData = await summaryResponse.json();
-          setSummary(summaryData.content);
-        }
+        // Fetch chat history from database (includes recording metadata)
+        const historyResponse = await fetch(`/api/chat/${uniqueId}`);
         
-        // Fetch chat history from database
-        const historyResponse = await fetch(`/api/chat/${recordingId}`);
         if (historyResponse.ok) {
           const historyData: ChatHistory = await historyResponse.json();
+          
+          // Set recording name from metadata if available
+          if (historyData.recordingMetadata?.recordingFilename) {
+            setRecordingName(historyData.recordingMetadata.recordingFilename);
+          } else {
+            setRecordingName(storedName || 'Recording');
+          }
+          
           if (historyData.messages && historyData.messages.length > 0) {
             setMessages(historyData.messages);
           } else {
@@ -66,12 +72,15 @@ const ChatWithAI = () => {
               {
                 id: 'initial-message',
                 role: 'assistant',
-                content: `Hello! I'm your AI assistant. I have access to the transcript and summary of "${storedName || 'this recording'}". How can I help you with information from this recording?`,
+                content: `Hello! I'm your AI assistant. I have access to the transcript and summary of "${historyData.recordingMetadata?.recordingFilename || storedName || 'this recording'}". How can I help you with information from this recording?`,
                 createdAt: new Date()
               }
             ]);
           }
         } else {
+          // If we can't get chat history, use localStorage name as fallback
+          setRecordingName(storedName || 'Recording');
+          
           // Add initial AI greeting if no history
           setMessages([
             {
@@ -85,15 +94,26 @@ const ChatWithAI = () => {
       } catch (error) {
         console.error('Error loading chat data:', error);
         toast.error('Failed to load chat data');
+        
+        // Use fallback greeting
+        setRecordingName(localStorage.getItem('recordingName') || 'Recording');
+        setMessages([
+          {
+            id: 'initial-message',
+            role: 'assistant',
+            content: `Hello! I'm your AI assistant. How can I help you with information from this recording?`,
+            createdAt: new Date()
+          }
+        ]);
       } finally {
         setInitializing(false);
       }
     };
     
-    if (recordingId) {
+    if (uniqueId) {
       fetchData();
     }
-  }, [recordingId]);
+  }, [uniqueId]);
   
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -117,9 +137,6 @@ const ChatWithAI = () => {
     setIsLoading(true);
     
     try {
-      // Get transcription URL from localStorage
-      const transcriptionUrl = localStorage.getItem('transcriptionUrl');
-      
       // Send request to API
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -128,9 +145,7 @@ const ChatWithAI = () => {
         },
         body: JSON.stringify({
           message: input,
-          recordingId,
-          transcriptionUrl,
-          summary,
+          uniqueId,
           previousMessages: messages
         }),
       });
@@ -169,9 +184,9 @@ const ChatWithAI = () => {
   };
   
   return (
-    <div className="flex flex-col h-screen text-white">
+    <div className="flex flex-col h-screen bg-slate-950 text-white">
       {/* Header */}
-      <div className="flex items-center p- border-b border-slate-800">
+      <div className="flex items-center p-4 border-b border-slate-800">
         <Link href="/recordings" className="mr-2">
           <Button variant="ghost" size="icon" className="text-white">
             <ArrowLeft className="h-5 w-5" />
@@ -187,7 +202,7 @@ const ChatWithAI = () => {
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
           </div>
         ) : (
-          <ScrollArea className="h-full  py-4">
+          <ScrollArea className="h-full px-4 py-6">
             <div className="flex flex-col space-y-4 max-w-3xl mx-auto">
               {messages.map((message) => (
                 <div 
@@ -212,11 +227,11 @@ const ChatWithAI = () => {
       </div>
       
       {/* Input area */}
-      <Card className="m-2 bg-slate-900 border-slate-800 p-0 fixed bottom-3 w-[70vw]">
-        <div className="flex items-center justify-center">
+      <Card className="m-4 bg-slate-900 border-slate-800">
+        <div className="flex items-end p-2">
           <textarea
             ref={inputRef}
-            className="flex-1 bg-transparent border-0 resize-none focus:ring-0 outline-none placeholder:text-gray-500 p-2 h-full text-white"
+            className="flex-1 bg-transparent border-0 resize-none focus:ring-0 outline-none placeholder:text-gray-500 text-white"
             placeholder="Ask a question about this recording..."
             rows={1}
             value={input}
@@ -227,13 +242,13 @@ const ChatWithAI = () => {
           />
           <Button 
             onClick={handleSendMessage} 
-            className={`ml-2 rounded-full  ${isLoading ? 'bg-gray-600' : 'bg-blue-600 hover:bg-blue-700'}`}
+            className={`ml-2 rounded-full p-2 ${isLoading ? 'bg-gray-600' : 'bg-blue-600 hover:bg-blue-700'}`}
             disabled={isLoading || !input.trim()}
           >
             {isLoading ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <SendHorizontal className="h-3 w-3" />
+              <SendHorizontal className="h-5 w-5" />
             )}
           </Button>
         </div>

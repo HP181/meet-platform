@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import { RecordingMetadata, Summary } from '@/models';
 
 // Initialize OpenAI
 const openai = new OpenAI({
@@ -11,22 +12,44 @@ const openai = new OpenAI({
 
 export async function POST(req: NextRequest) {
   try {
-    const { transcript, recordingId, sessionId, filename } = await req.json();
+    const { 
+      transcript, 
+      uniqueId, 
+      sessionId, 
+      recordingFilename,
+      recordingUrl,
+      transcriptFilename,
+      transcriptUrl
+    } = await req.json();
     
-    if (!transcript || !recordingId) {
+    if (!transcript || !uniqueId || !sessionId) {
       return NextResponse.json(
-        { error: 'Transcript and recordingId are required' }, 
+        { error: 'Transcript, uniqueId, and sessionId are required' }, 
         { status: 400 }
       );
     }
 
-    // Connect to MongoDB
-    const { db } = await connectToDatabase();
+    // Connect to MongoDB via Mongoose
+    await connectToDatabase();
+    
+    // First, ensure we have the recording metadata stored
+    let recordingMetadata = await RecordingMetadata.findOne({ uniqueId });
+    
+    if (!recordingMetadata) {
+      // Create new recording metadata if it doesn't exist
+      recordingMetadata = new RecordingMetadata({
+        uniqueId,
+        sessionId,
+        recordingFilename,
+        recordingUrl,
+        transcriptFilename,
+        transcriptUrl
+      });
+      await recordingMetadata.save();
+    }
     
     // Check if summary already exists
-    const existingSummary = await db
-      .collection('summaries')
-      .findOne({ recordingId });
+    const existingSummary = await Summary.findOne({ recordingId: uniqueId });
     
     if (existingSummary) {
       return NextResponse.json({ summary: existingSummary.content });
@@ -68,18 +91,17 @@ For each section, use clear bullet points. If a section has no relevant informat
       temperature: 0.5,
     });
 
-    const summary = completion.choices[0]?.message?.content || "Failed to generate summary";
+    const summaryContent = completion.choices[0]?.message?.content || "Failed to generate summary";
 
-    // Save summary to database
-    await db.collection('summaries').insertOne({
-      recordingId,
-      sessionId,
-      filename,
-      content: summary,
-      createdAt: new Date()
+    // Create and save new summary
+    const newSummary = new Summary({
+      recordingId: uniqueId,
+      content: summaryContent
     });
+    
+    await newSummary.save();
 
-    return NextResponse.json({ summary });
+    return NextResponse.json({ summary: summaryContent });
     
   } catch (error) {
     console.error('Error in summarize API route:', error);
