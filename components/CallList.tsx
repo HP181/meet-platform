@@ -3,14 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, FileText, BrainCircuit, MessageSquare } from "lucide-react";
 
 import Loader from "./Loader";
 import MeetingCard from "./MeetingCard";
 import { Button } from "./ui/button";
 import TranscriptionDialog, { TranscriptionSegment, TranscriptionFile } from '@/components/TranscriptionDialog';
+import SummaryDialog from '@/components/SummaryDialog'; // New component for summary
 
-// Import the useRecordings hook instead of useGetCalls
+// Import the useRecordings hook
 import { useRecordings } from '@/hooks/useRecordings';
 
 // Import UserDetails type from MeetingCard to ensure compatibility
@@ -71,7 +72,7 @@ interface CallListProps {
 const CallList = ({ type }: CallListProps) => {
   const router = useRouter();
   
-  // Use the updated useRecordings hook that includes all functionality
+  // Use the useRecordings hook
   const { 
     callsWithData, 
     endedCalls, 
@@ -91,6 +92,12 @@ const CallList = ({ type }: CallListProps) => {
   const [transcriptionData, setTranscriptionData] = useState<TranscriptionSegment[]>([]);
   const [selectedTranscriptionInfo, setSelectedTranscriptionInfo] = useState<TranscriptionFile | null>(null);
   const [transcriptionLoading, setTranscriptionLoading] = useState(false);
+  
+  // Summary dialog states
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryContent, setSummaryContent] = useState<string>("");
+  const [currentRecordingId, setCurrentRecordingId] = useState<string>("");
   
   // Function to handle opening transcription dialog
   const handleViewTranscript = async (transcriptionFiles: TranscriptionFile[]) => {
@@ -120,6 +127,82 @@ const CallList = ({ type }: CallListProps) => {
     } finally {
       setTranscriptionLoading(false);
     }
+  };
+  
+  // Function to handle generating summary
+  const handleGenerateSummary = async (transcriptionFiles: TranscriptionFile[], recordingId: string) => {
+    if (!transcriptionFiles || transcriptionFiles.length === 0) return;
+    
+    setSummaryLoading(true);
+    setCurrentRecordingId(recordingId);
+    setSummaryDialogOpen(true);
+    
+    try {
+      // First check if summary already exists in database
+      const summaryResponse = await fetch(`/api/summary/${recordingId}`);
+      
+      if (summaryResponse.ok) {
+        // Summary exists, use it
+        const data = await summaryResponse.json();
+        setSummaryContent(data.content);
+        setSummaryLoading(false);
+        return;
+      }
+      
+      // Summary doesn't exist, need to generate it
+      const transcriptionUrl = transcriptionFiles[0]?.url;
+      
+      if (!transcriptionUrl) {
+        throw new Error("No transcription URL found");
+      }
+      
+      // Load the transcription data
+      const parsedData = await fetchTranscriptionData(transcriptionUrl);
+      
+      // Convert transcription segments to a text format for the AI
+      const transcriptText = parsedData
+        .map(segment => `${segment.speaker_id || 'Speaker'}: ${segment.text}`)
+        .join('\n');
+      
+      // Send to AI API to generate summary
+      const aiResponse = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transcript: transcriptText,
+          recordingId,
+          sessionId: transcriptionFiles[0].session_id,
+          filename: transcriptionFiles[0].filename
+        }),
+      });
+      
+      if (!aiResponse.ok) {
+        throw new Error("Failed to generate summary");
+      }
+      
+      const summaryData = await aiResponse.json();
+      setSummaryContent(summaryData.summary);
+      
+    } catch (err) {
+      console.error("Error generating summary:", err);
+      setSummaryContent("Failed to generate summary. Please try again later.");
+      toast.error("Failed to generate summary");
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+  
+  // Function to navigate to chat page
+  const handleNavigateToChat = (transcriptionFiles: TranscriptionFile[], recordingId: string) => {
+    // Store necessary info in localStorage for the chat page
+    localStorage.setItem('currentRecordingId', recordingId);
+    localStorage.setItem('transcriptionUrl', transcriptionFiles[0]?.url || '');
+    localStorage.setItem('recordingName', transcriptionFiles[0]?.filename || 'Recording');
+    
+    // Navigate to chat page
+    router.push(`/chat/${recordingId}`);
   };
 
   // Process recordings when callsWithData changes
@@ -161,6 +244,18 @@ const CallList = ({ type }: CallListProps) => {
       return () => clearTimeout(timer);
     }
   }, [transcriptionDialogOpen]);
+
+  // Reset summary data when dialog closes
+  useEffect(() => {
+    if (!summaryDialogOpen) {
+      const timer = setTimeout(() => {
+        setSummaryContent("");
+        setCurrentRecordingId("");
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [summaryDialogOpen]);
 
   // Determine which data to use based on type
   const getCalls = () => {
@@ -265,27 +360,51 @@ const CallList = ({ type }: CallListProps) => {
                   creator = convertedCreator;
                 }
               }
-
+console.log("recording", recording);
               return (
-                <MeetingCard
-                  key={recording.uniqueId}
-                  icon="/icons/recordings.svg"
-                  title={recording.filename}
-                  date={formatDate(recording.start_time)}
-                  link={recording.url}
-                  buttonIcon1="/icons/play.svg"
-                  buttonText="Play"
-                  handleClick={() => window.open(recording.url, '_blank')}
-                  participants={participants}
-                  creator={creator}
-                  hasTranscriptions={recording.hasTranscriptions}
-                  transcriptions={recording.transcriptions}
-                  onViewTranscription={() => {
-                    if (recording.hasTranscriptions && recording.transcriptions.length > 0) {
-                      handleViewTranscript(recording.transcriptions);
-                    }
-                  }}
-                />
+                <div key={recording.uniqueId} className="flex flex-col">
+                  <MeetingCard
+                    icon="/icons/recordings.svg"
+                    title={recording.filename}
+                    date={formatDate(recording.start_time)}
+                    link={recording.url}
+                    buttonIcon1="/icons/play.svg"
+                    buttonText="Play"
+                    handleClick={() => window.open(recording.url, '_blank')}
+                    participants={participants}
+                    creator={creator}
+                    hasTranscriptions={recording.hasTranscriptions}
+                    transcriptions={recording.transcriptions}
+                    onViewTranscription={() => {
+                      if (recording.hasTranscriptions && recording.transcriptions.length > 0) {
+                        handleViewTranscript(recording.transcriptions);
+                      }
+                    }}
+                  />
+                  
+                  {/* Add AI buttons only for recordings with transcriptions */}
+                  {recording.hasTranscriptions && recording.transcriptions.length > 0 && (
+                    <div className="flex gap-2 mt-2">
+                      <Button 
+                        variant="outline" 
+                        className="flex-1 gap-2 bg-[#1E2655] hover:bg-[#2A3A6A] border-[#24294D] text-white"
+                        onClick={() => handleGenerateSummary(recording.transcriptions, recording.session_id)}
+                      >
+                        <BrainCircuit className="h-4 w-4" />
+                        Summary
+                      </Button>
+                      
+                      <Button 
+                        variant="outline" 
+                        className="flex-1 gap-2 bg-[#1E2655] hover:bg-[#2A3A6A] border-[#24294D] text-white"
+                        onClick={() => handleNavigateToChat(recording.transcriptions, recording.session_id)}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        Chat with AI
+                      </Button>
+                    </div>
+                  )}
+                </div>
               );
             } else {
               // It's a call (ended or upcoming)
@@ -363,6 +482,24 @@ const CallList = ({ type }: CallListProps) => {
         transcriptionData={transcriptionData}
         transcriptionInfo={selectedTranscriptionInfo}
         transcriptionLoading={transcriptionLoading}
+      />
+      
+      {/* Summary Dialog */}
+      <SummaryDialog
+        open={summaryDialogOpen}
+        onOpenChange={setSummaryDialogOpen}
+        content={summaryContent}
+        isLoading={summaryLoading}
+        recordingId={currentRecordingId}
+        onChatClick={() => {
+          setSummaryDialogOpen(false);
+          if (selectedTranscriptionInfo) {
+            handleNavigateToChat(
+              [selectedTranscriptionInfo], 
+              currentRecordingId
+            );
+          }
+        }}
       />
     </div>
   );
