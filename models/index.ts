@@ -1,4 +1,6 @@
 // models/index.ts
+// Add userId field to the Chat schema and create a compound index
+
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
 // Recording Metadata Interface
@@ -19,9 +21,10 @@ export interface IMessage {
   createdAt: Date;
 }
 
-// Chat Interface
+// Chat Interface - updated to include userId
 export interface IChat extends Document {
   recordingId: string;        // References RecordingMetadata.uniqueId
+  userId: string;             // Clerk user ID
   messages: IMessage[];       // Array of messages
 }
 
@@ -83,7 +86,7 @@ const RecordingMetadataSchema = new Schema<IRecordingMetadata>({
   }
 }, { timestamps: true });
 
-// Chat Schema
+// Chat Schema - updated with userId
 const ChatSchema = new Schema<IChat>({
   recordingId: {
     type: String,
@@ -91,11 +94,19 @@ const ChatSchema = new Schema<IChat>({
     ref: 'RecordingMetadata',
     index: true
   },
+  userId: {
+    type: String,
+    required: true,
+    index: true
+  },
   messages: {
     type: [MessageSchema],
     default: []
   }
 }, { timestamps: true });
+
+// Add compound index for recordingId and userId
+ChatSchema.index({ recordingId: 1, userId: 1 }, { unique: true });
 
 // Summary Schema
 const SummarySchema = new Schema<ISummary>({

@@ -2,9 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { FileText, Users } from "lucide-react";
-
-// Import UI components
+import { FileText, Users, MessageSquare, Bot, Clock, Calendar } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,12 +14,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-
-// Import types from TranscriptionDialog
 import { TranscriptionFile } from "@/components/TranscriptionDialog";
 
-// Define types
 export interface UserDetails {
   user_id: string;
   name: string;
@@ -51,7 +48,9 @@ export interface MeetingCardProps {
   duration?: number;
   hasTranscriptions?: boolean;
   transcriptions?: TranscriptionFile[];
-  onViewTranscription?: () => void; // New prop for handling transcript viewing
+  onViewTranscription?: () => void;
+  summary?: string;
+  chatWithAI?: () => void;
 }
 
 const MeetingCard = ({
@@ -69,68 +68,93 @@ const MeetingCard = ({
   duration,
   hasTranscriptions,
   transcriptions,
-  onViewTranscription, // Add this to component params
+  onViewTranscription,
+  summary,
+  chatWithAI,
 }: MeetingCardProps) => {
   const [participantsDialogOpen, setParticipantsDialogOpen] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
 
-  // Format duration if available
   const formattedDuration = duration
     ? formatDuration(duration)
     : undefined;
+    
+  const formattedDateTime = formatDateTime(date);
 
-  // Handler for participants dialog
   const handleViewParticipants = (e: React.MouseEvent) => {
     e.stopPropagation();
     setParticipantsDialogOpen(true);
   };
 
-  // Handler for transcript viewing
   const handleViewTranscript = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onViewTranscription) {
       onViewTranscription();
     }
   };
+  
+  const handleChatWithAI = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (chatWithAI) {
+      chatWithAI();
+    }
+  };
 
   return (
-    <div className="flex flex-col rounded-lg bg-[#161A2F] overflow-hidden">
-      {/* Card header */}
+    <div className="flex flex-col rounded-lg bg-[#161A2F] overflow-hidden h-full">
       <div className="p-4 border-b border-[#252A41]">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex justify-between items-start">
+          <div className="flex-shrink-0">
             <Image
               src={icon}
               alt="Icon"
-              width={36}
-              height={36}
+              width={28}
+              height={28}
               className="object-contain"
             />
-            <div>
-              <h3 className="font-semibold text-white">{title}</h3>
-              <p className="text-sm text-gray-400">{date}</p>
-            </div>
           </div>
           
-          {/* Badges section */}
           <div className="flex gap-2">
             {hasTranscriptions && (
-              <Badge className="bg-green-600 hover:bg-green-700 text-white">
+              <Badge className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap">
                 Transcription
               </Badge>
             )}
             
             {participants && participants.length > 0 && (
-              <Badge variant="outline" className="border-blue-500 text-blue-400">
+              <Badge variant="outline" className="border-blue-500 text-blue-400 whitespace-nowrap">
                 {participants.length} <Users className="w-3 h-3 ml-1" />
               </Badge>
             )}
           </div>
         </div>
+        
+        <div className="flex justify-between mt-3">
+          <div className="min-w-0 flex-1">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <h3 className="font-semibold text-white truncate max-w-[220px] sm:max-w-[300px]">
+                    {title}
+                  </h3>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{title}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          
+          <div className="flex items-center text-sm text-gray-400 gap-1 ml-4 flex-shrink-0">
+            <Calendar className="h-3 w-3" />
+            <span className="truncate">{formattedDateTime.date}</span>
+            <Clock className="h-3 w-3 ml-2" />
+            <span className="truncate">{formattedDateTime.time}</span>
+          </div>
+        </div>
       </div>
 
-      {/* Card body */}
-      <div className="p-4 flex-1">
-        {/* Meeting duration if available */}
+      <div className="p-4 flex-1 flex flex-col">
         {formattedDuration && (
           <div className="mb-4">
             <p className="text-gray-400 text-sm">
@@ -139,20 +163,29 @@ const MeetingCard = ({
           </div>
         )}
         
-        {/* Ended by info if available */}
         {endedBy && (
           <div className="mb-4">
             <p className="text-gray-400 text-sm">
-              Ended by: <span className="text-white">{endedBy.name}</span>
+              Ended by: 
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-white ml-1 truncate inline-block max-w-[150px] align-bottom">
+                      {endedBy.name}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{endedBy.name}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </p>
           </div>
         )}
         
-        {/* Participants section */}
-        <div className="mt-3">
+        <div className="mb-4">
           <p className="text-gray-400 text-sm mb-2">Participants</p>
-          <div className="flex -space-x-2 overflow-hidden">
-            {/* Creator */}
+          <div className="flex flex-wrap -space-x-2 overflow-hidden">
             {creator && (
               <Avatar className="border-2 border-[#161A2F]">
                 {creator.image_url ? (
@@ -165,7 +198,6 @@ const MeetingCard = ({
               </Avatar>
             )}
             
-            {/* Other participants */}
             {participants && 
               participants
                 .filter(p => !creator || p.user_id !== creator.user_id)
@@ -182,7 +214,6 @@ const MeetingCard = ({
                   </Avatar>
                 ))}
                 
-            {/* Show more indicator if there are more participants */}
             {participants && participants.length > 4 && (
               <Avatar className="border-2 border-[#161A2F] bg-gray-700">
                 <AvatarFallback>+{participants.length - 4}</AvatarFallback>
@@ -190,113 +221,190 @@ const MeetingCard = ({
             )}
           </div>
         </div>
+        
+        {summary && (
+          <div className="mb-4">
+            <Collapsible 
+              open={summaryExpanded} 
+              onOpenChange={setSummaryExpanded}
+              className="w-full border border-[#252A41] rounded-md overflow-hidden"
+            >
+              <div className="bg-[#1A1E32] px-3 py-2 flex justify-between items-center">
+                <h4 className="text-sm font-medium text-white">Meeting Summary</h4>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="p-0 h-7 w-7">
+                    <span className="sr-only">{summaryExpanded ? 'Close' : 'Open'}</span>
+                    <span className={`transition-transform ${summaryExpanded ? 'rotate-180' : ''}`}>
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+              <CollapsibleContent>
+                <div className="p-3 bg-[#161A2F] text-sm text-gray-300">
+                  {summary}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        )}
       </div>
 
-      {/* Card footer with actions */}
-      <div className="p-4 pt-2 border-t border-[#252A41] space-y-2">
-        {/* Primary action button */}
-        {!isPreviousMeeting && (
-          <Button
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2"
-            onClick={handleClick}
-          >
-            {buttonIcon1 && (
-              <Image
-                src={buttonIcon1}
-                alt="Button icon"
-                width={16}
-                height={16}
-                className="object-contain"
-              />
-            )}
-            {buttonText}
-          </Button>
-        )}
-        
-        {/* View participants button */}
-        <Button 
-          variant="outline"
-          className="w-full border-[#24294D] bg-[#1E2655] hover:bg-[#2A3A6A] hover:text-white text-white flex items-center justify-center gap-2"
-          onClick={handleViewParticipants}
-        >
-          <Users className="h-5 w-5" />
-          View Participants
-        </Button>
-        
-        {/* View transcription button - only show if transcriptions are available */}
-        {hasTranscriptions && onViewTranscription && (
+      <div className="p-4 pt-2 border-t border-[#252A41]">
+        <div className="grid grid-cols-1 gap-2">
+          {!isPreviousMeeting && (
+            <Button
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2"
+              onClick={handleClick}
+            >
+              {buttonIcon1 && (
+                <Image
+                  src={buttonIcon1}
+                  alt="Button icon"
+                  width={16}
+                  height={16}
+                  className="object-contain"
+                />
+              )}
+              <span>{buttonText}</span>
+            </Button>
+          )}
+          
           <Button 
             variant="outline"
             className="w-full border-[#24294D] bg-[#1E2655] hover:bg-[#2A3A6A] hover:text-white text-white flex items-center justify-center gap-2"
-            onClick={handleViewTranscript}
+            onClick={handleViewParticipants}
           >
-            <FileText className="h-5 w-5" />
-            View Transcript
+            <Users className="h-5 w-5" />
+            <span className="truncate">View Participants</span>
           </Button>
-        )}
+          
+          {hasTranscriptions && onViewTranscription && (
+            <Button 
+              variant="outline"
+              className="w-full border-[#24294D] bg-[#1E2655] hover:bg-[#2A3A6A] hover:text-white text-white flex items-center justify-center gap-2"
+              onClick={handleViewTranscript}
+            >
+              <FileText className="h-5 w-5" />
+              <span className="truncate">View Transcript</span>
+            </Button>
+          )}
+          
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            {summary && (
+              <Button 
+                variant="outline"
+                className="border-[#24294D] bg-[#1E2655] hover:bg-[#2A3A6A] hover:text-white text-white flex items-center justify-center gap-2"
+                onClick={() => setSummaryExpanded(!summaryExpanded)}
+              >
+                <FileText className="h-5 w-5" />
+                <span className="truncate">Summary</span>
+              </Button>
+            )}
+            
+            {chatWithAI && (
+              <Button 
+                variant={summary ? "outline" : "outline"}
+                className={summary 
+                  ? "border-green-900 bg-green-900/30 hover:bg-green-800 text-green-400 hover:text-green-200 flex items-center justify-center gap-2" 
+                  : "w-full border-green-900 bg-green-900/30 hover:bg-green-800 text-green-400 hover:text-green-200 flex items-center justify-center gap-2"}
+                onClick={handleChatWithAI}
+              >
+                <Bot className="h-5 w-5" />
+                <span className="truncate">Chat with AI</span>
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Participants Dialog */}
       <Dialog open={participantsDialogOpen} onOpenChange={setParticipantsDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-white">
+        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-white max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-white">Participants</DialogTitle>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
-            {/* Show creator with special badge */}
-            {creator && (
-              <div className="mb-4 border-b border-slate-700 pb-4">
-                <div className="flex items-center space-x-3">
-                  <Avatar>
-                    {creator.image_url ? (
-                      <AvatarImage src={creator.image_url} alt={creator.name || 'Creator'} />
-                    ) : (
-                      <AvatarFallback className="bg-purple-600">
-                        {creator.name?.charAt(0) || creator.user_id?.charAt(0) || 'C'}
-                      </AvatarFallback>
-                    )}
-                  </Avatar>
-                  <div>
-                    <div className="font-medium flex items-center text-white">
-                      {creator.name || creator.user_id || 'Call Creator'}
-                      <Badge variant="secondary" className="ml-2 bg-purple-600 hover:bg-purple-700">
-                        Creator
-                      </Badge>
-                    </div>
-                    {creator.email && <div className="text-sm text-gray-400">{creator.email}</div>}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <div className="space-y-4">
-              {participants && participants.length > 0 ? (
-                participants
-                  .filter(p => !creator || p.user_id !== creator.user_id) // Filter out creator if shown separately
-                  .map((participant, index) => (
-                  <div key={index} className="flex items-center space-x-3">
+          <ScrollArea className="flex-1 overflow-auto">
+            <div className="pr-4">
+              {creator && (
+                <div className="mb-4 border-b border-slate-700 pb-4">
+                  <div className="flex items-center space-x-3">
                     <Avatar>
-                      {participant.image_url ? (
-                        <AvatarImage src={participant.image_url} alt={participant.name || 'User'} />
+                      {creator.image_url ? (
+                        <AvatarImage src={creator.image_url} alt={creator.name || 'Creator'} />
                       ) : (
-                        <AvatarFallback className="bg-blue-600">
-                          {participant.name?.charAt(0) || participant.user_id?.charAt(0) || '?'}
+                        <AvatarFallback className="bg-purple-600">
+                          {creator.name?.charAt(0) || creator.user_id?.charAt(0) || 'C'}
                         </AvatarFallback>
                       )}
                     </Avatar>
-                    <div>
-                      <div className="font-medium text-white">{participant.name || participant.user_id || 'Unknown User'}</div>
-                      <div className="text-sm text-gray-400">{participant.role || 'participant'}</div>
-                      {participant.email && <div className="text-sm text-gray-400">{participant.email}</div>}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium flex items-center text-white flex-wrap gap-2">
+                        <span className="truncate">{creator.name || creator.user_id || 'Call Creator'}</span>
+                        <Badge variant="secondary" className="bg-purple-600 hover:bg-purple-700 flex-shrink-0">
+                          Creator
+                        </Badge>
+                      </div>
+                      {creator.email && (
+                        <div className="text-sm text-gray-400 truncate">{creator.email}</div>
+                      )}
                     </div>
                   </div>
-                ))
-              ) : (
-                <div className="text-center text-gray-400 py-4">No other participants found</div>
+                </div>
               )}
+              
+              <div className="space-y-4">
+                {participants && participants.length > 0 ? (
+                  participants
+                    .filter(p => !creator || p.user_id !== creator.user_id)
+                    .map((participant, index) => (
+                    <div key={index} className="flex items-center space-x-3">
+                      <Avatar className="flex-shrink-0">
+                        {participant.image_url ? (
+                          <AvatarImage src={participant.image_url} alt={participant.name || 'User'} />
+                        ) : (
+                          <AvatarFallback className="bg-blue-600">
+                            {participant.name?.charAt(0) || participant.user_id?.charAt(0) || '?'}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="font-medium text-white truncate">
+                                {participant.name || participant.user_id || 'Unknown User'}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{participant.name || participant.user_id || 'Unknown User'}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <div className="text-sm text-gray-400 truncate">{participant.role || 'participant'}</div>
+                        {participant.email && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-sm text-gray-400 truncate">{participant.email}</div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{participant.email}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-400 py-4">No other participants found</div>
+                )}
+              </div>
             </div>
           </ScrollArea>
-          <DialogFooter>
+          <DialogFooter className="mt-4">
             <Button 
               onClick={() => setParticipantsDialogOpen(false)} 
               className="w-full bg-slate-800 hover:bg-slate-700 text-white"
@@ -310,7 +418,6 @@ const MeetingCard = ({
   );
 };
 
-// Helper function to format duration in a human-readable way
 function formatDuration(milliseconds: number): string {
   const seconds = Math.floor(milliseconds / 1000);
   const minutes = Math.floor(seconds / 60);
@@ -322,6 +429,28 @@ function formatDuration(milliseconds: number): string {
     return `${minutes}m ${seconds % 60}s`;
   } else {
     return `${seconds}s`;
+  }
+}
+
+function formatDateTime(dateString: string): { date: string; time: string } {
+  try {
+    const date = new Date(dateString);
+    
+    const formattedDate = date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric', 
+      year: 'numeric'
+    });
+    
+    const formattedTime = date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    
+    return { date: formattedDate, time: formattedTime };
+  } catch (error) {
+    return { date: dateString, time: '' };
   }
 }
 

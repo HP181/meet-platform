@@ -5,10 +5,11 @@ import { Summary, RecordingMetadata } from '@/models';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { recordingId: string } }
+  context: { params: { recordingId: string } }
 ) {
   try {
-    const recordingId = (await params).recordingId;
+    const param = await context.params;
+    const recordingId = param.recordingId;
     
     if (!recordingId) {
       return NextResponse.json(
