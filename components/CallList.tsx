@@ -5,7 +5,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { RefreshCw, FileText, BrainCircuit, MessageSquare } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
 import Loader from "./Loader";
 import MeetingCard from "./MeetingCard";
@@ -16,13 +16,10 @@ import TranscriptionDialog, {
 } from "@/components/TranscriptionDialog";
 import SummaryDialog from "@/components/SummaryDialog";
 
-// Import the useRecordings hook
 import { useRecordings } from "@/hooks/useRecordings";
 
-// Import UserDetails type from MeetingCard to ensure compatibility
 import type { UserDetails } from "@/components/MeetingCard";
 
-// Define a type for enhanced recording
 interface EnhancedRecording {
   uniqueId: string;
   filename: string;
@@ -34,7 +31,6 @@ interface EnhancedRecording {
   hasValidTranscription?: boolean;
 }
 
-// Helper function to convert types - returns UserDetails or undefined (not null)
 const convertToUserDetails = (item: any): UserDetails | undefined => {
   if (!item) return undefined;
 
@@ -47,12 +43,10 @@ const convertToUserDetails = (item: any): UserDetails | undefined => {
   };
 };
 
-// Type guard to ensure an item is a UserDetails
 const isUserDetails = (item: UserDetails | undefined): item is UserDetails => {
   return item !== undefined;
 };
 
-// Helper function to safely format dates
 const formatDate = (
   dateValue: Date | string | number | null | undefined
 ): string => {
@@ -71,14 +65,11 @@ const formatDate = (
   }
 };
 
-// Function to validate transcription URL
 const isValidTranscriptionUrl = (transcription: TranscriptionFile): boolean => {
-  // First check if URL exists
   if (!transcription?.url) {
     return false;
   }
 
-  // Check if the URL contains error indicators
   const url = transcription.url.toLowerCase();
   if (
     url.includes("error") ||
@@ -98,7 +89,6 @@ interface CallListProps {
 const CallList = ({ type }: CallListProps) => {
   const router = useRouter();
 
-  // Use the updated useRecordings hook that includes all functionality
   const {
     callsWithData,
     endedCalls,
@@ -110,7 +100,6 @@ const CallList = ({ type }: CallListProps) => {
     refreshCalls,
   } = useRecordings();
 
-  // State for processed recordings
   const [processedRecordings, setProcessedRecordings] = useState<
     EnhancedRecording[]
   >([]);
@@ -146,21 +135,17 @@ const CallList = ({ type }: CallListProps) => {
           return false;
         }
 
-        // Try to parse content
         let hasValidContent = false;
 
         try {
-          // Try parsing as a JSON array
           const jsonArray = JSON.parse(text);
           if (Array.isArray(jsonArray) && jsonArray.length > 0) {
-            // Check if first item has expected fields
             const firstItem = jsonArray[0];
             if (firstItem && firstItem.speaker_id && firstItem.text) {
               hasValidContent = true;
             }
           }
         } catch (jsonError) {
-          // Try parsing as space-separated JSON objects
           const jsonObjects = text.trim().split(/\s+(?=\{)/);
           if (jsonObjects.length > 1) {
             try {
@@ -168,13 +153,10 @@ const CallList = ({ type }: CallListProps) => {
               if (firstObj && firstObj.speaker_id && firstObj.text) {
                 hasValidContent = true;
               }
-            } catch (e) {
-              // Not valid space-separated JSON
-            }
+            } catch (e) {}
           }
 
           if (!hasValidContent) {
-            // Try JSONL format
             const lines = text.split("\n").filter((line) => line.trim());
             if (lines.length > 0) {
               try {
@@ -182,9 +164,7 @@ const CallList = ({ type }: CallListProps) => {
                 if (firstLine && firstLine.speaker_id && firstLine.text) {
                   hasValidContent = true;
                 }
-              } catch (e) {
-                // Not valid JSONL
-              }
+              } catch (e) {}
             }
           }
         }
@@ -198,9 +178,6 @@ const CallList = ({ type }: CallListProps) => {
     []
   );
 
-  // Function to handle opening transcription dialog
-  // Updated handleViewTranscript function for CallList.tsx
-  // Updated handleViewTranscript function for CallList.tsx
   const handleViewTranscript = async (
     transcriptionFiles: TranscriptionFile[]
   ) => {
@@ -210,20 +187,17 @@ const CallList = ({ type }: CallListProps) => {
     setTranscriptionLoading(true);
     setSelectedTranscriptionInfo(transcriptionFiles[0]);
 
-    // Open dialog immediately with loading state
     setTranscriptionDialogOpen(true);
 
     try {
       const transcriptionUrl = transcriptionFiles[0]?.url;
 
       if (!transcriptionUrl) {
-        // Set empty data without showing toast
         setTranscriptionData([]);
         setTranscriptionLoading(false);
         return;
       }
 
-      // Check if response contains XML error messages
       const response = await fetch(transcriptionUrl);
       const text = await response.text();
 
@@ -232,37 +206,30 @@ const CallList = ({ type }: CallListProps) => {
         text.includes("InvalidKey") ||
         text.includes("Unknown Key")
       ) {
-        // Set empty data without showing toast
         setTranscriptionData([]);
         setTranscriptionLoading(false);
         return;
       }
 
-      // Load the data before updating the dialog content
       const parsedData = await fetchTranscriptionData(transcriptionUrl);
 
-      // Validate parsed data
       if (
         !parsedData ||
         parsedData.length === 0 ||
         !parsedData[0]?.speaker_id ||
         !parsedData[0]?.text
       ) {
-        // Set empty data without showing toast
         setTranscriptionData([]);
         setTranscriptionLoading(false);
         return;
       }
 
-      // Set transcription data once loaded
       setTranscriptionData(parsedData);
     } catch (err) {
       console.error("Error loading transcription:", err);
 
-      // Set empty data without showing toast for expected errors
       setTranscriptionData([]);
 
-      // Only show toast for unexpected errors (network issues, etc.)
       if (
         !(
           err instanceof Error &&
@@ -277,7 +244,7 @@ const CallList = ({ type }: CallListProps) => {
       setTranscriptionLoading(false);
     }
   };
-  // Function to handle generating summary
+
   const handleGenerateSummary = async (recording: EnhancedRecording) => {
     if (
       !recording ||
@@ -313,17 +280,14 @@ const CallList = ({ type }: CallListProps) => {
       // Load the transcription data
       const parsedData = await fetchTranscriptionData(transcriptionUrl);
 
-      // Check if data is valid
       if (!parsedData || parsedData.length === 0) {
         throw new Error("Invalid transcription data");
       }
 
-      // Convert transcription segments to a text format for the AI
       const transcriptText = parsedData
         .map((segment) => `${segment.speaker_id || "Speaker"}: ${segment.text}`)
         .join("\n");
 
-      // Send to AI API to generate summary
       const aiResponse = await fetch("/api/summarize", {
         method: "POST",
         headers: {
@@ -357,24 +321,20 @@ const CallList = ({ type }: CallListProps) => {
   };
 
   // Function to navigate to chat page
- const handleNavigateToChat = (recording: EnhancedRecording) => {
-  if (!recording.hasValidTranscription) return;
-  
-  console.log("Navigating to chat with recording:", {
-    uniqueId: recording.uniqueId,
-    hasUrl: !!recording.url,
-    transcriptionUrl: recording.transcriptions?.[0]?.url || 'none'
-  });
-  
-  // Store necessary info in localStorage for the chat page
-  localStorage.setItem('recordingName', recording.filename || 'Recording');
-  localStorage.setItem('recordingUrl', recording.url || ''); // Store the recording URL
-  localStorage.setItem('transcriptUrl', recording.transcriptions?.[0]?.url || '');
-  localStorage.setItem('sessionId', recording.session_id || '');
-  
-  // Navigate to chat page using the session_id
-  router.push(`/chat/${recording.uniqueId}`);
-};
+  const handleNavigateToChat = (recording: EnhancedRecording) => {
+    if (!recording.hasValidTranscription) return;
+
+    // Store necessary info in localStorage for the chat page
+    localStorage.setItem("recordingName", recording.filename || "Recording");
+    localStorage.setItem("recordingUrl", recording.url || ""); // Store the recording URL
+    localStorage.setItem(
+      "transcriptUrl",
+      recording.transcriptions?.[0]?.url || ""
+    );
+    localStorage.setItem("sessionId", recording.session_id || "");
+
+    router.push(`/chat/${recording.uniqueId}`);
+  };
 
   // Process recordings when callsWithData changes
   useEffect(() => {
@@ -388,21 +348,20 @@ const CallList = ({ type }: CallListProps) => {
         const matchingTranscriptions = callData.transcriptions.filter(
           (t) => t.session_id === recording.session_id
         );
-        console.log("r222", recording);
-    enhancedRecordings.push({
-  uniqueId: recording.session_id, // Use session_id as uniqueId
-  filename: recording.filename || "Unnamed Recording",
-  url: recording.url,
-  start_time: recording.start_time || new Date(),
-  session_id: recording.session_id,
-  hasTranscriptions: matchingTranscriptions.length > 0,
-  transcriptions: matchingTranscriptions,
-  hasValidTranscription: false // Default to false until validated
-});
+
+        enhancedRecordings.push({
+          uniqueId: recording.session_id, // Use session_id as uniqueId
+          filename: recording.filename || "Unnamed Recording",
+          url: recording.url,
+          start_time: recording.start_time || new Date(),
+          session_id: recording.session_id,
+          hasTranscriptions: matchingTranscriptions.length > 0,
+          transcriptions: matchingTranscriptions,
+          hasValidTranscription: false, // Default to false until validated
+        });
       });
     });
 
-    // Set the initial recordings
     setProcessedRecordings(enhancedRecordings);
   }, [callsWithData, type]);
 
@@ -433,7 +392,6 @@ const CallList = ({ type }: CallListProps) => {
       // If no validations to run, stop here
       if (validationPromises.length === 0) return;
 
-      // Process validation results
       const results = await Promise.all(validationPromises);
 
       // Create updated recordings with validation results
@@ -462,7 +420,6 @@ const CallList = ({ type }: CallListProps) => {
     validateRecordings();
   }, [processedRecordings, validateTranscriptionContent]);
 
-  // Reset data when dialog closes
   useEffect(() => {
     if (!transcriptionDialogOpen) {
       const timer = setTimeout(() => {
@@ -570,7 +527,6 @@ const CallList = ({ type }: CallListProps) => {
             const isPreviousMeeting = type === "ended";
 
             if (isRecording) {
-              // It's a recording
               const recording = item as EnhancedRecording;
 
               // Find matching call to get participants and creator
@@ -599,6 +555,13 @@ const CallList = ({ type }: CallListProps) => {
                 }
               }
 
+              // For UI consistency, we'll always pass the AI feature handlers
+              // but they'll only be functional if the transcription is valid
+              const hasValidTranscription =
+                recording.hasTranscriptions &&
+                recording.transcriptions.length > 0 &&
+                recording.hasValidTranscription;
+
               return (
                 <div key={recording.uniqueId} className="flex flex-col">
                   <MeetingCard
@@ -621,39 +584,24 @@ const CallList = ({ type }: CallListProps) => {
                         handleViewTranscript(recording.transcriptions);
                       }
                     }}
+                    // Pass the AI feature handlers if transcription is valid
+                    generateSummary={
+                      hasValidTranscription
+                        ? () => handleGenerateSummary(recording)
+                        : undefined
+                    }
+                    chatWithAI={
+                      hasValidTranscription
+                        ? () => handleNavigateToChat(recording)
+                        : undefined
+                    }
                   />
-
-                  {/* Add AI buttons only for recordings with VALID transcriptions */}
-                  {recording.hasTranscriptions &&
-                    recording.transcriptions.length > 0 &&
-                    recording.hasValidTranscription && (
-                      <div className="flex gap-2 mt-2">
-                        <Button
-                          variant="outline"
-                          className="flex-1 gap-2 border-[#24294D] bg-[#1E2655] hover:bg-[#2A3A6A] hover:text-white text-white"
-                          onClick={() => handleGenerateSummary(recording)}
-                        >
-                          <BrainCircuit className="h-4 w-4" />
-                          Summary
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          className="flex-1 gap-2 border-[#24294D] bg-[#1E2655] hover:bg-[#2A3A6A] hover:text-white text-white"
-                          onClick={() => handleNavigateToChat(recording)}
-                        >
-                          <MessageSquare className="h-4 w-4" />
-                          Chat with AI
-                        </Button>
-                      </div>
-                    )}
                 </div>
               );
             } else {
               // It's a call (ended or upcoming)
               const call = item;
 
-              // For calls, extract data from call.state.custom if available
               const customData = call.state?.custom || {};
 
               // Convert participants with type-safe filtering
@@ -661,7 +609,7 @@ const CallList = ({ type }: CallListProps) => {
                 customData.participants
                   ? customData.participants
                       .map(convertToUserDetails)
-                      .filter(isUserDetails) // Type-safe filtering
+                      .filter(isUserDetails)
                   : undefined;
 
               // Convert creator (ensure it's UserDetails or undefined, not null)
@@ -675,16 +623,21 @@ const CallList = ({ type }: CallListProps) => {
                 }
               }
 
-              // Check for end info
               const endedBy = customData.ended_by;
 
-              // Calculate duration if available
               let duration: number | undefined = undefined;
-              if (call.state?.startsAt && call.state?.endedAt) {
-                const startDate = new Date(call.state.startsAt);
-                const endDate = new Date(call.state.endedAt);
+              if (call.state?.createdAt && call.state?.createdAt) {
+                const startDate = new Date(call.state.createdAt);
+                const endDate =
+                  call.state.endedAt !== undefined
+                    ? new Date(call.state.endedAt)
+                    : undefined;
 
-                if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+                if (
+                  !isNaN(startDate.getTime()) &&
+                  endDate !== undefined &&
+                  !isNaN(endDate.getTime())
+                ) {
                   duration = endDate.getTime() - startDate.getTime();
                 }
               }
@@ -701,7 +654,9 @@ const CallList = ({ type }: CallListProps) => {
                     customData.description || call.id || "Untitled Meeting"
                   }
                   date={
-                    call.state?.startsAt ? formatDate(call.state.startsAt) : ""
+                    call.state?.createdAt
+                      ? formatDate(call.state.createdAt)
+                      : ""
                   }
                   isPreviousMeeting={isPreviousMeeting}
                   link={
@@ -719,6 +674,8 @@ const CallList = ({ type }: CallListProps) => {
                   creator={creator}
                   endedBy={endedBy}
                   duration={duration}
+                  generateSummary={undefined}
+                  chatWithAI={undefined}
                 />
               );
             }
@@ -737,7 +694,6 @@ const CallList = ({ type }: CallListProps) => {
         )}
       </div>
 
-      {/* Transcription Dialog */}
       <TranscriptionDialog
         open={transcriptionDialogOpen}
         onOpenChange={setTranscriptionDialogOpen}
@@ -746,7 +702,6 @@ const CallList = ({ type }: CallListProps) => {
         transcriptionLoading={transcriptionLoading}
       />
 
-      {/* Summary Dialog */}
       <SummaryDialog
         open={summaryDialogOpen}
         onOpenChange={setSummaryDialogOpen}

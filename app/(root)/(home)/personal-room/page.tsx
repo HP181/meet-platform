@@ -46,17 +46,14 @@ const PersonalRoom = () => {
         data: {
           starts_at: new Date().toISOString(),
           settings_override: {
-            transcription : {
-              mode : "available",
-              language: "en"
-            }
-          }
+            transcription: {
+              mode: "available",
+              language: "en",
+            },
+          },
         },
       });
     }
-
-  // await newCall.startTranscription({ language: "en" });
-  // await newCall.startClosedCaptions({ language: "en" });
 
     router.push(`/meeting/${meetingId}?personal=true`);
   };

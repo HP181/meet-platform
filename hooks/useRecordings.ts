@@ -223,6 +223,7 @@ export const useRecordings = () => {
       });
       
       // Set the new states
+      console.log("Ended calls:", ended);
       setEndedCalls(ended);
       setUpcomingCalls(upcoming);
       

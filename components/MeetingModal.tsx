@@ -30,20 +30,16 @@ const MeetingModal = ({
   children,
   handleClick,
   buttonText,
-  // instantMeeting,
   image,
-  // buttonClassName,
   buttonIcon,
 }: MeetingModalProps) => {
-  // Use the provided dialogTitle or fall back to the visible title
   const accessibleTitle = dialogTitle || title;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="flex w-full max-w-[520px] flex-col gap-6 border-none bg-[#1C1F2E] px-6 py-9 text-white">
-        {/* This DialogTitle is required for accessibility */}
         <DialogTitle className="sr-only">{accessibleTitle}</DialogTitle>
-        
+
         <div className="flex flex-col gap-6">
           {image && (
             <div className="flex justify-center">
