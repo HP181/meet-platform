@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
   CallControls,
   CallParticipantsList,
@@ -8,11 +8,10 @@ import {
   CallingState,
   PaginatedGridLayout,
   SpeakerLayout,
-  useCall,
   useCallStateHooks,
-} from '@stream-io/video-react-sdk';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Users, LayoutList, FileText } from 'lucide-react';
+} from "@stream-io/video-react-sdk";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Users, LayoutList, FileText } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -20,31 +19,30 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from './ui/dropdown-menu';
-import Loader from './Loader';
-import EndCallButton from './EndCallButton';
-import { cn } from '@/lib/utils';
-import TranscriptionToggle from './TranscriptionToggle';
-import TranscriptionViewer from './TranscriptionViewer';
+} from "./ui/dropdown-menu";
+import Loader from "./Loader";
+import EndCallButton from "./EndCallButton";
+import { cn } from "@/lib/utils";
+import TranscriptionToggle from "./TranscriptionToggle";
+import TranscriptionViewer from "./TranscriptionViewer";
+import { Button } from "./ui/button";
 
-type CallLayoutType = 'grid' | 'speaker-left' | 'speaker-right';
+type CallLayoutType = "grid" | "speaker-left" | "speaker-right";
 
 const MeetingRoom = () => {
   const searchParams = useSearchParams();
-  const isPersonalRoom = !!searchParams.get('personal');
+  const isPersonalRoom = !!searchParams.get("personal");
   const router = useRouter();
-  const [layout, setLayout] = useState<CallLayoutType>('speaker-left');
+  const [layout, setLayout] = useState<CallLayoutType>("speaker-left");
   const [showParticipants, setShowParticipants] = useState(false);
   const [showTranscriptions, setShowTranscriptions] = useState(false);
-  
-  // Get call instance and hooks
-  const call = useCall();
-  const { 
-    useCallCallingState, 
+
+  const {
+    useCallCallingState,
     useIsCallTranscribingInProgress,
-    useCallEndedAt 
+    useCallEndedAt,
   } = useCallStateHooks();
-  
+
   const callingState = useCallCallingState();
   const isTranscribing = useIsCallTranscribingInProgress();
   const callEndedAt = useCallEndedAt();
@@ -52,8 +50,7 @@ const MeetingRoom = () => {
   // Effect to detect when call has ended and redirect all participants
   useEffect(() => {
     if (callEndedAt) {
-      console.log('Call has ended, redirecting to home page');
-      router.push('/');
+      router.push("/");
     }
   }, [callEndedAt, router]);
 
@@ -61,9 +58,9 @@ const MeetingRoom = () => {
 
   const CallLayout = () => {
     switch (layout) {
-      case 'grid':
+      case "grid":
         return <PaginatedGridLayout />;
-      case 'speaker-right':
+      case "speaker-right":
         return <SpeakerLayout participantsBarPosition="left" />;
       default:
         return <SpeakerLayout participantsBarPosition="right" />;
@@ -77,8 +74,8 @@ const MeetingRoom = () => {
           <CallLayout />
         </div>
         <div
-          className={cn('h-[calc(100vh-86px)] hidden ml-2', {
-            'show-block': showParticipants,
+          className={cn("h-[calc(100vh-86px)] hidden ml-2", {
+            "show-block": showParticipants,
           })}
         >
           <CallParticipantsList onClose={() => setShowParticipants(false)} />
@@ -103,7 +100,7 @@ const MeetingRoom = () => {
             </DropdownMenuTrigger>
           </div>
           <DropdownMenuContent className="border-dark-1 bg-dark-1 text-white">
-            {['Grid', 'Speaker-Left', 'Speaker-Right'].map((item, index) => (
+            {["Grid", "Speaker-Left", "Speaker-Right"].map((item, index) => (
               <div key={index}>
                 <DropdownMenuItem
                   onClick={() =>
@@ -123,13 +120,13 @@ const MeetingRoom = () => {
             <Users size={20} className="text-white" />
           </div>
         </button>
-        
+
         {/* Transcription toggle button */}
         <TranscriptionToggle />
-        
+
         {/* Show/hide transcriptions button */}
-        <button 
-          onClick={() => setShowTranscriptions(prev => !prev)}
+        <Button
+          onClick={() => setShowTranscriptions((prev) => !prev)}
           className="cursor-pointer rounded-2xl bg-[#19232d] px-4 py-2 hover:bg-[#4c535b]"
         >
           <div className="flex items-center">
@@ -138,8 +135,8 @@ const MeetingRoom = () => {
               <span className="ml-2 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
             )}
           </div>
-        </button>
-        
+        </Button>
+
         {!isPersonalRoom && <EndCallButton />}
       </div>
     </section>

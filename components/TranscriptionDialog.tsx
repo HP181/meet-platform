@@ -1,7 +1,6 @@
 "use client";
-import React, { useEffect, useRef } from 'react';
-import { formatTimestamp } from '@/hooks/formatTimestamp';
-
+import React, { useEffect, useRef } from "react";
+import { formatTimestamp } from "@/hooks/formatTimestamp";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +10,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export interface TranscriptionSegment {
   speaker_id: string;
@@ -37,22 +41,24 @@ export interface TranscriptionDialogProps {
   transcriptionLoading: boolean;
 }
 
-const TranscriptionDialog: React.FC<TranscriptionDialogProps> = ({ 
-  open, 
-  onOpenChange, 
-  transcriptionData = [], 
+const TranscriptionDialog: React.FC<TranscriptionDialogProps> = ({
+  open,
+  onOpenChange,
+  transcriptionData = [],
   transcriptionInfo = null,
-  transcriptionLoading = false
+  transcriptionLoading = false,
 }) => {
   const referenceTime = transcriptionInfo?.start_time;
-  
+
   useEffect(() => {
     if (open) {
       // Use a small timeout to ensure the DOM has updated
       setTimeout(() => {
         // Find all scroll containers in the dialog
-        const scrollContainers = document.querySelectorAll('.scroll-view[data-radix-scroll-area-viewport]');
-        scrollContainers.forEach(container => {
+        const scrollContainers = document.querySelectorAll(
+          ".scroll-view[data-radix-scroll-area-viewport]"
+        );
+        scrollContainers.forEach((container) => {
           if (container instanceof HTMLElement) {
             container.scrollTop = 0;
           }
@@ -83,7 +89,7 @@ const TranscriptionDialog: React.FC<TranscriptionDialogProps> = ({
             )}
           </DialogTitle>
         </DialogHeader>
-        
+
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-[50vh] w-full">
             <div className="px-4 pb-4">
@@ -94,20 +100,35 @@ const TranscriptionDialog: React.FC<TranscriptionDialogProps> = ({
               ) : transcriptionData.length > 0 ? (
                 <div className="space-y-4">
                   {transcriptionData.map((segment, index) => (
-                    <div key={`${transcriptionInfo?.session_id || 'segment'}-${index}`} className="border-b border-slate-700 pb-2">
+                    <div
+                      key={`${
+                        transcriptionInfo?.session_id || "segment"
+                      }-${index}`}
+                      className="border-b border-slate-700 pb-2"
+                    >
                       <div className="flex flex-col text-sm text-gray-400 mb-1">
                         <span className="font-medium truncate w-full">
-                          {segment.speaker_id || 'Unknown'}
-                          {segment.type && <span className="ml-2 text-xs opacity-70">({segment.type})</span>}
+                          {segment.speaker_id || "Unknown"}
+                          {segment.type && (
+                            <span className="ml-2 text-xs opacity-70">
+                              ({segment.type})
+                            </span>
+                          )}
                         </span>
-                        {(segment.start_ts !== undefined) && (
+                        {segment.start_ts !== undefined && (
                           <span className="text-xs">
-                            {formatTimestamp(segment.start_ts, referenceTime)} 
-                            {segment.stop_ts !== undefined && ` - ${formatTimestamp(segment.stop_ts, referenceTime)}`}
+                            {formatTimestamp(segment.start_ts, referenceTime)}
+                            {segment.stop_ts !== undefined &&
+                              ` - ${formatTimestamp(
+                                segment.stop_ts,
+                                referenceTime
+                              )}`}
                           </span>
                         )}
                       </div>
-                      <p className="text-white break-words text-sm">{segment.text}</p>
+                      <p className="text-white break-words text-sm">
+                        {segment.text}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -119,10 +140,10 @@ const TranscriptionDialog: React.FC<TranscriptionDialogProps> = ({
             </div>
           </ScrollArea>
         </div>
-        
+
         <DialogFooter className="px-4 py-3 border-t border-slate-800 mt-auto">
-          <Button 
-            onClick={() => onOpenChange(false)} 
+          <Button
+            onClick={() => onOpenChange(false)}
             className="w-full bg-slate-800 hover:bg-slate-700 text-white"
           >
             Close

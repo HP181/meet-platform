@@ -1,4 +1,3 @@
-// File: types/meetingCard.ts
 
 // User details interface for participants and creators
 export interface UserDetails {

@@ -1,12 +1,17 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-import { Sheet, SheetClose, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { SidebarLinks } from '@/Constants/index';
-import { cn } from '@/lib/utils';
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { SidebarLinks } from "@/Constants/index";
+import { cn } from "@/lib/utils";
 
 const MobileNav = () => {
   const pathname = usePathname();
@@ -31,10 +36,12 @@ const MobileNav = () => {
               height={32}
               alt="MEET PLATFORMOM LOGO"
             />
-            <p className="text-[26px] font-extrabold text-white">MEET PLATFORMOM</p>
+            <p className="text-[26px] font-extrabold text-white">
+              MEET PLATFORMOM
+            </p>
           </Link>
           <div className="flex h-[calc(100vh-72px)] flex-col justify-between overflow-y-auto">
-            <SheetClose asChild className='text-white'>
+            <SheetClose asChild className="text-white">
               <section className=" flex h-full flex-col gap-6 pt-16">
                 {SidebarLinks.map((item) => {
                   const isActive = pathname === item.route;
@@ -45,9 +52,9 @@ const MobileNav = () => {
                         href={item.route}
                         key={item.label}
                         className={cn(
-                          'flex gap-4 items-center p-4 rounded-lg w-full max-w-60',
+                          "flex gap-4 items-center p-4 rounded-lg w-full max-w-60",
                           {
-                            'bg-[#0E78F9]': isActive,
+                            "bg-[#0E78F9]": isActive,
                           }
                         )}
                       >

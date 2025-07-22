@@ -1,12 +1,11 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
   useCall,
   useCallStateHooks,
-  // Call,
   CallTranscriptionReadyEvent,
-} from '@stream-io/video-react-sdk';
+} from "@stream-io/video-react-sdk";
 
 interface StreamTranscription {
   filename: string;
@@ -16,7 +15,9 @@ interface StreamTranscription {
 }
 
 const TranscriptionViewer = () => {
-  const [transcriptions, setTranscriptions] = useState<StreamTranscription[]>([]);
+  const [transcriptions, setTranscriptions] = useState<StreamTranscription[]>(
+    []
+  );
   const [loading, setLoading] = useState(false);
   const call = useCall();
   const { useIsCallTranscribingInProgress } = useCallStateHooks();
@@ -31,18 +32,23 @@ const TranscriptionViewer = () => {
       const result = await call.queryTranscriptions();
 
       const processedTranscriptions = (result?.transcriptions || []).map(
-        (transcription: { filename: string; url: string; session_id?: string }): StreamTranscription => {
+        (transcription: {
+          filename: string;
+          url: string;
+          session_id?: string;
+        }): StreamTranscription => {
           let created_at_date = new Date();
 
           try {
             if (transcription.filename) {
-              const matches = transcription.filename.match(/(\d{4}-\d{2}-\d{2})/);
+              const matches =
+                transcription.filename.match(/(\d{4}-\d{2}-\d{2})/);
               if (matches && matches[1]) {
                 created_at_date = new Date(matches[1]);
               }
             }
           } catch (e) {
-            console.error('Error parsing date from filename:', e);
+            console.error("Error parsing date from filename:", e);
           }
 
           return {
@@ -54,7 +60,7 @@ const TranscriptionViewer = () => {
 
       setTranscriptions(processedTranscriptions);
     } catch (error) {
-      console.error('Error fetching transcriptions:', error);
+      console.error("Error fetching transcriptions:", error);
     } finally {
       setLoading(false);
     }
@@ -62,18 +68,17 @@ const TranscriptionViewer = () => {
 
   useEffect(() => {
     const handleTranscriptionReady = (event: CallTranscriptionReadyEvent) => {
-      console.log('Transcription ready event received:', event);
       fetchTranscriptions();
     };
 
     if (call) {
-      call.on('call.transcription_ready', handleTranscriptionReady);
+      call.on("call.transcription_ready", handleTranscriptionReady);
       fetchTranscriptions();
     }
 
     return () => {
       if (call) {
-        call.off('call.transcription_ready', handleTranscriptionReady);
+        call.off("call.transcription_ready", handleTranscriptionReady);
       }
     };
   }, [call]);
@@ -86,7 +91,9 @@ const TranscriptionViewer = () => {
 
       {isTranscribing && (
         <div className="mb-4">
-          <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">Live</span>
+          <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+            Live
+          </span>
           <span className="ml-2 text-sm">Transcription in progress...</span>
         </div>
       )}
@@ -96,7 +103,10 @@ const TranscriptionViewer = () => {
           {transcriptions.map((transcript, index) => (
             <li key={index} className="border-b border-gray-700 pb-2">
               <div className="flex justify-between text-xs text-gray-400 mb-1">
-                <span>{transcript.created_at_date?.toLocaleString() || 'Unknown date'}</span>
+                <span>
+                  {transcript.created_at_date?.toLocaleString() ||
+                    "Unknown date"}
+                </span>
                 <a
                   href={transcript.url}
                   target="_blank"
@@ -120,7 +130,7 @@ const TranscriptionViewer = () => {
           className="text-sm bg-[#333] hover:bg-[#444] px-3 py-1 rounded"
           disabled={loading}
         >
-          {loading ? 'Refreshing...' : 'Refresh'}
+          {loading ? "Refreshing..." : "Refresh"}
         </button>
       </div>
     </div>

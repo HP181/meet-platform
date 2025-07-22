@@ -1,10 +1,10 @@
-'use client';
-import Image from 'next/image';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+"use client";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-import { SidebarLinks } from '@/Constants/index';
-import { cn } from '@/lib/utils';
+import { SidebarLinks } from "@/Constants/index";
+import { cn } from "@/lib/utils";
 
 const Sidebar = () => {
   const pathname = usePathname();
@@ -13,16 +13,17 @@ const Sidebar = () => {
     <section className="sticky left-0 top-0 flex h-screen w-fit flex-col  justify-between  !bg-[#1C1F2E] p-6 pt-28 text-white max-sm:hidden lg:w-[264px]">
       <div className="flex flex-1 flex-col gap-6">
         {SidebarLinks.map((item) => {
-          const isActive = pathname === item.route || pathname.startsWith(`${item.route}/`);
-          
+          const isActive =
+            pathname === item.route || pathname.startsWith(`${item.route}/`);
+
           return (
             <Link
               href={item.route}
               key={item.label}
               className={cn(
-                'flex gap-4 items-center p-4 rounded-lg justify-start z-50',
+                "flex gap-4 items-center p-4 rounded-lg justify-start z-50",
                 {
-                  'bg-[#0e78f9]': isActive,
+                  "bg-[#0e78f9]": isActive,
                 }
               )}
             >

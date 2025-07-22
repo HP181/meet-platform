@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { Call, useStreamVideoClient } from "@stream-io/video-react-sdk";
 import { toast } from "sonner";
-// Remove the direct crypto import
 
 import HomeCard from "./HomeCard";
 import Loader from "./Loader";
@@ -15,7 +14,6 @@ import { Input } from "./ui/input";
 import MeetingModal from "./MeetingModal";
 import "react-datepicker/dist/react-datepicker.css";
 
-// Define a type for user details
 interface UserDetails {
   user_id: string;
   name: string;
@@ -30,9 +28,7 @@ const initialValues = {
   link: "",
 };
 
-// Helper function to generate a unique ID without using crypto.randomUUID()
 const generateUniqueId = () => {
-  // Combine timestamp with random values for uniqueness
   const timestamp = new Date().getTime().toString(36);
   const randomStr = Math.random().toString(36).substring(2, 10);
   return `${timestamp}-${randomStr}`;
@@ -48,19 +44,16 @@ const MeetingTypeList = () => {
   const client = useStreamVideoClient();
   const { user } = useUser();
 
-  // Function to get the next valid time slot (in 15-minute intervals)
   const getNextValidTimeSlot = () => {
     const now = new Date();
     const minutes = now.getMinutes();
     const roundUpMinutes = Math.ceil(minutes / 15) * 15;
 
-    // Create a new date with rounded up minutes
     const nextSlot = new Date(now);
     nextSlot.setMinutes(roundUpMinutes);
     nextSlot.setSeconds(0);
     nextSlot.setMilliseconds(0);
 
-    // If we're already at or past the 45-minute mark, roll over to the next hour
     if (minutes > 45) {
       nextSlot.setHours(now.getHours() + 1);
       nextSlot.setMinutes(0);
@@ -69,18 +62,14 @@ const MeetingTypeList = () => {
     return nextSlot;
   };
 
-  // Handle date change with validation
   const handleDateTimeChange = (date: Date | null) => {
     if (!date) return;
 
     const now = new Date();
     const nextValidSlot = getNextValidTimeSlot();
 
-    // If selected date is today
     if (date.toDateString() === now.toDateString()) {
-      // If time is before the next valid slot
       if (date < nextValidSlot) {
-        // Set time to next valid slot
         toast.info(
           "Selected time adjusted to the next available 15-minute slot"
         );
@@ -90,9 +79,7 @@ const MeetingTypeList = () => {
         setValues({ ...values, dateTime: adjustedDate });
         return;
       }
-    }
-    // If date is in the past
-    else if (date < now) {
+    } else if (date < now) {
       toast.error(
         "Cannot schedule meetings in the past. Please select a future date and time."
       );
@@ -102,30 +89,26 @@ const MeetingTypeList = () => {
     setValues({ ...values, dateTime: date });
   };
 
-  // Create a meeting with current user details
   const createMeeting = async (dateTime: Date, description: string = "") => {
     if (!client || !user) return null;
-    
+
     try {
-      // Use our custom function instead of crypto.randomUUID()
       const id = generateUniqueId();
       const call = client.call("default", id);
-      
+
       if (!call) throw new Error("Failed to create meeting");
 
       const startsAt = dateTime.toISOString();
       const meetingDescription = description || "Meeting";
 
-      // Create creator details object
       const creatorDetails: UserDetails = {
         user_id: user.id,
         name: user.fullName || user.username || user.id,
         email: user.emailAddresses?.[0]?.emailAddress,
         image_url: user.imageUrl,
-        role: "creator" // Mark as the creator
+        role: "creator",
       };
 
-      // Store meeting creator details in custom data
       await call.getOrCreate({
         data: {
           settings_override: {
@@ -137,15 +120,15 @@ const MeetingTypeList = () => {
           starts_at: startsAt,
           custom: {
             description: meetingDescription,
-            creator: creatorDetails, // Store creator details
-            participants: [creatorDetails], // Initialize participants array with creator
+            creator: creatorDetails,
+            participants: [creatorDetails],
           },
         },
       });
 
       setCallDetail(call);
       toast.success("Meeting Created");
-      
+
       return call;
     } catch (error) {
       console.error(error);
@@ -153,7 +136,6 @@ const MeetingTypeList = () => {
     }
   };
 
-  // Create a scheduled meeting with time validation
   const createScheduledMeeting = async () => {
     if (!client || !user) return;
     try {
@@ -162,11 +144,9 @@ const MeetingTypeList = () => {
         return;
       }
 
-      // Get the current time and next valid time slot
       const now = new Date();
       const nextValidSlot = getNextValidTimeSlot();
 
-      // Validate date/time before creating the meeting
       if (values.dateTime < now) {
         toast.error(
           "Cannot schedule meetings in the past. Please select a future date and time."
@@ -174,7 +154,6 @@ const MeetingTypeList = () => {
         return;
       }
 
-      // If it's today and time is earlier than next valid slot, show error
       if (
         values.dateTime.toDateString() === now.toDateString() &&
         values.dateTime < nextValidSlot
@@ -189,9 +168,8 @@ const MeetingTypeList = () => {
       }
 
       await createMeeting(values.dateTime, values.description);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to create Meeting");
+    } catch (error: unknown) {
+      toast.error(error as string);
     }
   };
 
@@ -199,17 +177,14 @@ const MeetingTypeList = () => {
   const createInstantMeeting = async () => {
     if (!client || !user) return;
     try {
-      // Use current time for instant meetings
       const now = new Date();
       const call = await createMeeting(now, "Instant Meeting");
-      
-      // For instant meetings, navigate directly to the meeting
+
       if (call) {
         router.push(`/meeting/${call.id}`);
         setMeetingState(undefined); // Close the modal
       }
     } catch (error) {
-      console.error(error);
       toast.error("Failed to create Meeting");
     }
   };
@@ -287,12 +262,10 @@ const MeetingTypeList = () => {
               minDate={new Date()} // This prevents selecting past dates
               {...(values.dateTime.toDateString() === new Date().toDateString()
                 ? {
-                    // For today, restrict to time slots from now to end of day
                     minTime: getNextValidTimeSlot(),
                     maxTime: new Date(new Date().setHours(23, 45)),
                   }
                 : {
-                    // For future dates, allow full day selection in 15-min intervals
                     minTime: new Date(new Date().setHours(0, 0)),
                     maxTime: new Date(new Date().setHours(23, 45)),
                   })}
