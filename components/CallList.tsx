@@ -1,5 +1,3 @@
-// components/CallList.tsx (updated version)
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -126,7 +124,6 @@ const CallList = ({ type }: CallListProps) => {
         const response = await fetch(url);
         const text = await response.text();
 
-        // Check for XML error messages
         if (
           text.includes("<Error>") ||
           text.includes("InvalidKey") ||
@@ -259,25 +256,21 @@ const CallList = ({ type }: CallListProps) => {
     setSummaryDialogOpen(true);
 
     try {
-      // First check if summary already exists in database
       const summaryResponse = await fetch(`/api/summary/${recording.uniqueId}`);
 
       if (summaryResponse.ok) {
-        // Summary exists, use it
         const data = await summaryResponse.json();
         setSummaryContent(data.content);
         setSummaryLoading(false);
         return;
       }
 
-      // Summary doesn't exist, need to generate it
       const transcriptionUrl = recording.transcriptions[0]?.url;
 
       if (!transcriptionUrl) {
         throw new Error("No transcription URL found");
       }
 
-      // Load the transcription data
       const parsedData = await fetchTranscriptionData(transcriptionUrl);
 
       if (!parsedData || parsedData.length === 0) {
@@ -336,15 +329,13 @@ const CallList = ({ type }: CallListProps) => {
     router.push(`/chat/${recording.uniqueId}`);
   };
 
-  // Process recordings when callsWithData changes
   useEffect(() => {
     if (type !== "recordings" || callsWithData.length === 0) return;
 
     const enhancedRecordings: EnhancedRecording[] = [];
 
-    callsWithData.forEach((callData, callIndex) => {
-      callData.recordings.forEach((recording, recordingIndex) => {
-        // Find matching transcriptions for this recording
+    callsWithData.forEach((callData) => {
+      callData.recordings.forEach((recording) => {
         const matchingTranscriptions = callData.transcriptions.filter(
           (t) => t.session_id === recording.session_id
         );
@@ -365,8 +356,6 @@ const CallList = ({ type }: CallListProps) => {
     setProcessedRecordings(enhancedRecordings);
   }, [callsWithData, type]);
 
-  // Separate effect to validate transcriptions after initial rendering
-  // This prevents the circular dependency that was causing infinite updates
   useEffect(() => {
     if (processedRecordings.length === 0) return;
 
@@ -374,7 +363,6 @@ const CallList = ({ type }: CallListProps) => {
       const validationPromises: Promise<{ index: number; isValid: boolean }>[] =
         [];
 
-      // Prepare validation promises
       processedRecordings.forEach((recording, index) => {
         if (
           recording.hasTranscriptions &&
@@ -389,12 +377,10 @@ const CallList = ({ type }: CallListProps) => {
         }
       });
 
-      // If no validations to run, stop here
       if (validationPromises.length === 0) return;
 
       const results = await Promise.all(validationPromises);
 
-      // Create updated recordings with validation results
       const updatedRecordings = [...processedRecordings];
       let hasChanges = false;
 
@@ -411,7 +397,6 @@ const CallList = ({ type }: CallListProps) => {
         }
       });
 
-      // Only update state if changes were made
       if (hasChanges) {
         setProcessedRecordings(updatedRecordings);
       }
@@ -431,7 +416,6 @@ const CallList = ({ type }: CallListProps) => {
     }
   }, [transcriptionDialogOpen]);
 
-  // Reset summary data when dialog closes
   useEffect(() => {
     if (!summaryDialogOpen) {
       const timer = setTimeout(() => {
@@ -500,13 +484,30 @@ const CallList = ({ type }: CallListProps) => {
   const calls = getCalls();
   const noCallsMessage = getNoCallsMessage();
 
+  // Log for debugging
+  if (type === "upcoming") {
+    console.log("Upcoming calls:", upcomingCalls);
+  } else if (type === "ended") {
+    console.log("Ended calls:", endedCalls);
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-between items-center mb-2">
         {calls && calls.length > 0 && (
           <p className="text-sm text-gray-400">
             Showing {calls.length}{" "}
-            {calls.length === 1 ? type.slice(0, -1) : type}
+            {calls.length === 1
+              ? type === "ended"
+                ? "previous call"
+                : type === "upcoming"
+                ? "upcoming call"
+                : "recording"
+              : type === "ended"
+              ? "previous calls"
+              : type === "upcoming"
+              ? "upcoming calls"
+              : "recordings"}
           </p>
         )}
         <Button
@@ -529,7 +530,6 @@ const CallList = ({ type }: CallListProps) => {
             if (isRecording) {
               const recording = item as EnhancedRecording;
 
-              // Find matching call to get participants and creator
               const matchingCall = callsWithData.find((callData) =>
                 callData.recordings.some(
                   (r) => r.session_id === recording.session_id
@@ -544,7 +544,6 @@ const CallList = ({ type }: CallListProps) => {
                     .filter(isUserDetails) // Type-safe filtering
                 : undefined;
 
-              // Convert creator (ensure it's UserDetails or undefined, not null)
               let creator: UserDetails | undefined = undefined;
               if (matchingCall?.custom?.creator) {
                 const convertedCreator = convertToUserDetails(
@@ -625,19 +624,13 @@ const CallList = ({ type }: CallListProps) => {
 
               const endedBy = customData.ended_by;
 
+              // Calculate duration if available
               let duration: number | undefined = undefined;
-              if (call.state?.createdAt && call.state?.createdAt) {
-                const startDate = new Date(call.state.createdAt);
-                const endDate =
-                  call.state.endedAt !== undefined
-                    ? new Date(call.state.endedAt)
-                    : undefined;
+              if (call.state?.startsAt && call.state?.endedAt) {
+                const startDate = new Date(call.state.startsAt);
+                const endDate = new Date(call.state.endedAt);
 
-                if (
-                  !isNaN(startDate.getTime()) &&
-                  endDate !== undefined &&
-                  !isNaN(endDate.getTime())
-                ) {
+                if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
                   duration = endDate.getTime() - startDate.getTime();
                 }
               }
@@ -654,7 +647,11 @@ const CallList = ({ type }: CallListProps) => {
                     customData.description || call.id || "Untitled Meeting"
                   }
                   date={
-                    call.state?.createdAt
+                    type === "upcoming" && call.state?.startsAt
+                      ? formatDate(call.state.startsAt)
+                      : type === "ended" && call.state?.endedAt
+                      ? formatDate(call.state.endedAt)
+                      : call.state?.createdAt
                       ? formatDate(call.state.createdAt)
                       : ""
                   }

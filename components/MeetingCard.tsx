@@ -174,9 +174,9 @@ const MeetingCard = ({
 
           <div className="flex items-center text-sm text-gray-400 gap-1 ml-4 flex-shrink-0">
             <Calendar className="h-3 w-3" />
-            <span className="truncate">{formattedDateTime.date}</span>
+            <span className="truncate">{date.split(",")[0]}</span>
             <Clock className="h-3 w-3 ml-2" />
-            <span className="truncate">{formattedDateTime.time}</span>
+            <span className="truncate">{date.split(",")[1]}</span>
           </div>
         </div>
       </div>
