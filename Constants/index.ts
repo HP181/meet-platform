@@ -24,6 +24,11 @@ const SidebarLinks = [
     route: "/personal-room",
     imgURL: "/icons/add-personal.svg",
   },
+  {
+    label: "FAQ",
+    route: "/faq",
+    imgURL: "/icons/faq.png",
+  },
 ];
 
 const avatarImages = [
