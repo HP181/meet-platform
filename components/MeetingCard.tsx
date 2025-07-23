@@ -174,9 +174,24 @@ const MeetingCard = ({
 
           <div className="flex items-center text-sm text-gray-400 gap-1 ml-4 flex-shrink-0">
             <Calendar className="h-3 w-3" />
-            <span className="truncate">{date.split(",")[0]}</span>
+            <span className="truncate">
+              {/^(\d{4}-\d{2}-\d{2}T.*Z)$/.test(date?.split(",")[0])
+                ? new Date(date.split(",")[0]).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })
+                : date?.split(",")[0]}
+            </span>
             <Clock className="h-3 w-3 ml-2" />
-            <span className="truncate">{date.split(",")[1]}</span>
+            <span className="truncate">
+              {/^(\d{4}-\d{2}-\d{2}T.*Z)$/.test(date?.split(",")[0])
+                ? new Date(date.split(",")[0]).toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : date?.split(",")[1]}
+            </span>
           </div>
         </div>
       </div>
