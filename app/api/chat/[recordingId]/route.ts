@@ -1,4 +1,3 @@
-// app/api/chat/[recordingId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Chat, RecordingMetadata } from '@/models';
@@ -25,7 +24,6 @@ export async function GET(
     
     console.log('Authenticated user ID:', userId);
     
-    // Properly access params in Next.js App Router
     const param = await context.params;
     const recordingId = param.recordingId;
     console.log('Recording ID from params:', recordingId);
@@ -38,8 +36,6 @@ export async function GET(
       );
     }
 
-    // Connect to MongoDB via Mongoose
-    console.log('Connecting to database...');
     try {
       await connectToDatabase();
       console.log('Database connection successful');
@@ -51,8 +47,6 @@ export async function GET(
       );
     }
     
-    // Get recording metadata for context
-    console.log('Fetching recording metadata...');
     const metadata = await RecordingMetadata.findOne({ uniqueId: recordingId });
     
     if (!metadata) {
@@ -67,8 +61,7 @@ export async function GET(
       filename: metadata.recordingFilename,
       hasTranscriptUrl: !!metadata.transcriptUrl
     });
-    
-    // Find chat history by recordingId AND userId
+
     console.log('Fetching chat history for user and recording...');
     const chatHistory = await Chat.findOne({ 
       recordingId: recordingId,

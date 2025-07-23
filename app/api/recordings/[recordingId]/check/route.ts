@@ -1,57 +1,53 @@
-// app/api/recordings/[recordingId]/check/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { RecordingMetadata } from '@/models';
+import { NextRequest, NextResponse } from "next/server";
+import { connectToDatabase } from "@/lib/mongodb";
+import { RecordingMetadata } from "@/models";
 
 export async function GET(
   request: NextRequest,
   context: { params: { recordingId: string } }
 ) {
-  console.log('GET /api/recordings/[recordingId]/check - Request received');
-  
+  console.log("GET /api/recordings/[recordingId]/check - Request received");
+
   try {
     const param = await context.params;
     const recordingId = param.recordingId;
-    console.log('Checking if recording exists:', recordingId);
-    
+    console.log("Checking if recording exists:", recordingId);
+
     if (!recordingId) {
-      console.error('Missing recordingId parameter');
+      console.error("Missing recordingId parameter");
       return NextResponse.json(
-        { error: 'Recording ID is required' }, 
+        { error: "Recording ID is required" },
         { status: 400 }
       );
     }
 
-    // Connect to MongoDB
-    console.log('Connecting to database...');
+    console.log("Connecting to database...");
     await connectToDatabase();
-    
-    // Check if recording metadata exists
-    console.log('Querying for recording metadata...');
+
+    console.log("Querying for recording metadata...");
     const metadata = await RecordingMetadata.findOne({ uniqueId: recordingId });
-    
+
     if (!metadata) {
-      console.log('Recording metadata not found:', recordingId);
+      console.log("Recording metadata not found:", recordingId);
       return NextResponse.json(
-        { exists: false, message: 'Recording not found' }, 
+        { exists: false, message: "Recording not found" },
         { status: 404 }
       );
     }
 
-    console.log('Recording metadata found:', recordingId);
+    console.log("Recording metadata found:", recordingId);
     return NextResponse.json({
       exists: true,
       metadata: {
         uniqueId: metadata.uniqueId,
         recordingFilename: metadata.recordingFilename,
-        hasTranscript: !!metadata.transcriptUrl
-      }
+        hasTranscript: !!metadata.transcriptUrl,
+      },
     });
-    
-  } catch (error:any) {
-    console.error('Error checking recording:', error);
+  } catch (error: any) {
+    console.error("Error checking recording:", error);
     return NextResponse.json(
-      { error: `Failed to check recording: ${error.message}` }, 
+      { error: `Failed to check recording: ${error.message}` },
       { status: 500 }
     );
   }
