@@ -7,7 +7,7 @@ const isProtectedRoute = createRouteMatcher([
   "/previous",
   "/recordings",
   "/personal-room",
-  "/chat(.*)", // Updated to match all chat routes including dynamic IDs
+  "/chat(.*)",
   "/faq",
 ])
 
